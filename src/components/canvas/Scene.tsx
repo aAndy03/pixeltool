@@ -14,7 +14,7 @@ const GRID_SIZE_M = 1000 // 1000 meters grid size
 const PPI = 96 // Default standard
 
 export function Scene() {
-    const { artboards } = useArtboardStore()
+    const { artboards, selectArtboard } = useArtboardStore()
 
     // Calculate grid size in pixels
     const gridSizePx = useMemo(() => toPx(GRID_SIZE_M, 'm', PPI), [])
@@ -22,18 +22,22 @@ export function Scene() {
 
     return (
         <div className="absolute inset-0 z-0 bg-neutral-900">
-            <Canvas>
+            <Canvas
+                onPointerMissed={(e) => {
+                    // Only deselect if it was a distinct click (not drag end)
+                    // R3F handles this distinguishing for us usually.
+                    if (e.type === 'click' || e.type === 'contextmenu') {
+                        selectArtboard(null)
+                    }
+                }}
+            >
                 <PerspectiveCamera makeDefault position={[0, 0, toPx(1.5, 'm', PPI)]} near={1} far={toPx(MAX_DISTANCE_M * 2, 'm', PPI)} />
                 <CameraControls />
 
                 <ambientLight intensity={0.5} />
                 <pointLight position={[toPx(10, 'm', PPI), toPx(10, 'm', PPI), toPx(10, 'm', PPI)]} />
 
-                {/* Grid on XY Plane (Z=0) */}
-                {/* Standard gridHelper is XZ. Rotate -90deg around X to make it XY. */}
-                {/* Actually, if we look from Z axis, X is right, Y is up. */}
-                {/* gridHelper(size, divisions) draws on XZ plane. */}
-                {/* Rotating by Math.PI/2 puts it on XY. */}
+                {/* ... Grid ... */}
                 <group rotation={[Math.PI / 2, 0, 0]}>
                     <gridHelper args={[gridSizePx, divisionSize, 0x333333, 0x111111]} />
                 </group>

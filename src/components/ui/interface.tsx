@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { signout } from '@/app/auth/actions'
 import { ArtboardPopover } from '../interface/artboard-popover'
+import { LayerPanel } from '../interface/layer-panel'
 
 interface InterfaceProps {
     user: User | null
@@ -109,6 +110,9 @@ export function Interface({ user }: InterfaceProps) {
                     </button>
                 </div>
             </header>
+
+            {/* Layer Panel */}
+            {currentProject && <LayerPanel />}
 
             {/* Bottom Bar / Tools Placeholder */}
             <footer className="flex items-center justify-center w-full pointer-events-auto text-white/30 text-sm">

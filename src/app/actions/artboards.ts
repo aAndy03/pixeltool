@@ -10,6 +10,7 @@ export interface ArtboardData {
     x: number
     y: number
     settings: any
+    sort_order?: number
 }
 
 export async function createArtboard(projectId: string, data: ArtboardData) {
@@ -27,7 +28,8 @@ export async function createArtboard(projectId: string, data: ArtboardData) {
             height: data.height,
             x: data.x,
             y: data.y,
-            settings: data.settings
+            settings: data.settings,
+            sort_order: data.sort_order || 0
         })
         .select()
         .single()
@@ -46,6 +48,7 @@ export async function getArtboards(projectId: string) {
         .from('artboards')
         .select('*')
         .eq('project_id', projectId)
+        .order('sort_order', { ascending: false }) // Initial sort by order
 
     if (error) return { error: error.message, data: [] }
     return { success: true, data }
@@ -54,9 +57,7 @@ export async function getArtboards(projectId: string) {
 export async function updateArtboard(id: string, updates: any) {
     const supabase = await createClient()
 
-    // RLS policy handles auth check implicitly via 'using' clause, 
-    // but good to check user existence anyway (or let middleware handle it).
-
+    // RLS policy handles auth check implicitly via 'using' clause
     const { error } = await supabase
         .from('artboards')
         .update({
