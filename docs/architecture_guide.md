@@ -47,3 +47,8 @@ When adding a new entity (e.g., `Layers`, `Shapes`):
 -   **Dexie.js**: Wrapper for IndexedDB (Browser Database).
 -   **Zustand**: React State Management.
 -   **Supabase**: Backend Database & Auth.
+
+
+
+For devs:
+Previous features added before 2025.A.4alpha might not have been updated to use this architecture. 
