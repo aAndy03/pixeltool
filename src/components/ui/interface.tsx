@@ -1,6 +1,7 @@
 'use client'
 import { useUIStore } from '@/lib/store/ui-store'
-import { Menu, LogOut, User as UserIcon, PlusSquare } from 'lucide-react'
+import { useProjectStore } from '@/lib/store/project-store'
+import { Menu, LogOut, User as UserIcon, ChevronLeft } from 'lucide-react'
 import { useState } from 'react'
 import { type User } from '@supabase/supabase-js'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -13,7 +14,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { signout } from '@/app/auth/actions'
-import { ArtboardCreator } from '../interface/artboard-creator'
+import { ArtboardPopover } from '../interface/artboard-popover'
 
 interface InterfaceProps {
     user: User | null
@@ -21,28 +22,37 @@ interface InterfaceProps {
 
 export function Interface({ user }: InterfaceProps) {
     const { openLogin, openSignup } = useUIStore()
+    const { currentProject, setCurrentProject } = useProjectStore()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
-    const [isArtboardCreatorOpen, setIsArtboardCreatorOpen] = useState(false)
 
     return (
         <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6">
-            <ArtboardCreator open={isArtboardCreatorOpen} onOpenChange={setIsArtboardCreatorOpen} />
 
             {/* Top Bar */}
             <header className="flex items-center justify-between w-full pointer-events-auto">
                 <div className="flex items-center gap-4">
+                    {/* Back to Projects */}
+                    {currentProject && (
+                        <button
+                            onClick={() => setCurrentProject(null as any)}
+                            className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/50 hover:text-white mr-1"
+                            title="Back to Projects"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                    )}
+
                     <div className="text-2xl font-black tracking-tighter mix-blend-difference text-white">PixelTool</div>
-                    <span className="px-2 py-0.5 text-xs border border-white/20 rounded-full text-white/50">ALPHA</span>
+
+                    {currentProject ? (
+                        <span className="px-2 py-0.5 text-xs border border-white/20 rounded-full text-white/50">{currentProject.name}</span>
+                    ) : (
+                        <span className="px-2 py-0.5 text-xs border border-white/20 rounded-full text-white/50">ALPHA</span>
+                    )}
 
                     <div className="h-6 w-px bg-white/10 mx-2" />
 
-                    <button
-                        onClick={() => setIsArtboardCreatorOpen(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 text-white rounded-md transition-colors border border-white/10"
-                    >
-                        <PlusSquare className="w-4 h-4" />
-                        New Artboard
-                    </button>
+                    <ArtboardPopover />
                 </div>
 
                 <div className="flex items-center gap-3">

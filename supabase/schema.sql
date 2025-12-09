@@ -47,6 +47,64 @@ create policy "Users can update own projects." on public.projects
 create policy "Users can delete own projects." on public.projects
   for delete using (auth.uid() = user_id);
 
+-- Artboards: Belong to a project
+create table if not exists public.artboards (
+  id uuid default gen_random_uuid() primary key,
+  project_id uuid references public.projects(id) on delete cascade not null,
+  name text not null,
+  width numeric not null,
+  height numeric not null,
+  x numeric default 0,
+  y numeric default 0,
+  settings jsonb default '{}'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.artboards enable row level security;
+
+-- Policies for Artboards:
+-- We can check project ownership via subquery or join, but standard Supabase practice 
+-- often duplicates user_id or does a check.
+-- Simple check: User can access artboards if they can access the parent project.
+
+create policy "Users can view artboards of own projects." on public.artboards
+  for select using (
+    exists (
+      select 1 from public.projects
+      where projects.id = artboards.project_id
+      and projects.user_id = auth.uid()
+    )
+  );
+
+create policy "Users can insert artboards to own projects." on public.artboards
+  for insert with check (
+    exists (
+      select 1 from public.projects
+      where projects.id = project_id -- 'project_id' from new row
+      and projects.user_id = auth.uid()
+    )
+  );
+
+create policy "Users can update artboards of own projects." on public.artboards
+  for update using (
+    exists (
+      select 1 from public.projects
+      where projects.id = artboards.project_id
+      and projects.user_id = auth.uid()
+    )
+  );
+
+create policy "Users can delete artboards of own projects." on public.artboards
+  for delete using (
+    exists (
+      select 1 from public.projects
+      where projects.id = artboards.project_id
+      and projects.user_id = auth.uid()
+    )
+  );
+
+
 -- Trigger to create profile on signup
 create or replace function public.handle_new_user()
 returns trigger as $$
@@ -64,3 +122,4 @@ create trigger on_auth_user_created
 
 -- Realtime
 alter publication supabase_realtime add table public.projects;
+alter publication supabase_realtime add table public.artboards;

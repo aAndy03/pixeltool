@@ -1,22 +1,31 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Folder, Clock, MoreVertical } from 'lucide-react'
+import { Folder, Clock, MoreVertical } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useProjectStore } from '@/lib/store/project-store'
-import { CreateProjectModal } from './create-project-modal'
-import { formatDistanceToNow } from 'date-fns' // Need to install date-fns
+import { CreateProjectPopover } from './create-project-popover'
+import { formatDistanceToNow } from 'date-fns'
+import { useArtboardStore } from '@/lib/store/artboard-store'
 
 export function ProjectDashboard() {
-    const { projects, loadProjects, setCurrentProject, isLoading } = useProjectStore()
-    const [isCreateOpen, setIsCreateOpen] = useState(false)
+    const { projects, loadProjects, setCurrentProject, isLoading, currentProject } = useProjectStore()
+    const { loadArtboards } = useArtboardStore()
 
     useEffect(() => {
         loadProjects()
     }, [loadProjects])
+
+    const handleOpenProject = async (project: any) => {
+        setCurrentProject(project)
+        await loadArtboards(project.id)
+    }
+
+    // Hide dashboard if inside a project
+    if (currentProject) return null
 
     return (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-xl p-4 md:p-8">
@@ -28,9 +37,7 @@ export function ProjectDashboard() {
                             Manage your cinematic scale workspaces.
                         </CardDescription>
                     </div>
-                    <Button onClick={() => setIsCreateOpen(true)} className="bg-white text-black hover:bg-white/90 gap-2">
-                        <Plus className="w-4 h-4" /> New Project
-                    </Button>
+                    <CreateProjectPopover />
                 </CardHeader>
 
                 <CardContent className="flex-1 p-0 overflow-hidden">
@@ -45,7 +52,7 @@ export function ProjectDashboard() {
                             <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-20 opacity-50">
                                 <Folder className="w-16 h-16 stroke-1" />
                                 <p className="text-lg font-medium">No projects found</p>
-                                <Button variant="link" onClick={() => setIsCreateOpen(true)} className="text-white">Create your first project</Button>
+                                <div className="text-sm"><CreateProjectPopover /></div>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -53,7 +60,7 @@ export function ProjectDashboard() {
                                     <Card
                                         key={project.id}
                                         className="bg-white/5 border-white/5 hover:bg-white/10 transition-colors cursor-pointer group"
-                                        onClick={() => setCurrentProject(project)}
+                                        onClick={() => handleOpenProject(project)}
                                     >
                                         <CardHeader className="flex flex-row items-start justify-between pb-2">
                                             <Folder className="w-8 h-8 text-white/50 group-hover:text-white transition-colors stroke-1" />
@@ -83,8 +90,6 @@ export function ProjectDashboard() {
                     </ScrollArea>
                 </CardContent>
             </Card>
-
-            <CreateProjectModal open={isCreateOpen} onOpenChange={setIsCreateOpen} />
         </div>
     )
 }
