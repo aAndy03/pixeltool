@@ -16,6 +16,7 @@ import {
 import { signout } from '@/app/auth/actions'
 import { ArtboardPopover } from '../interface/artboard-popover'
 import { LayerPanel } from '../interface/layer-panel'
+import { useSync } from '@/lib/sync/sync-engine'
 
 interface InterfaceProps {
     user: User | null
@@ -25,6 +26,9 @@ export function Interface({ user }: InterfaceProps) {
     const { openLogin, openSignup } = useUIStore()
     const { currentProject, setCurrentProject } = useProjectStore()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+    // Start background sync if project is active
+    useSync(currentProject?.id || '')
 
     return (
         <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6">

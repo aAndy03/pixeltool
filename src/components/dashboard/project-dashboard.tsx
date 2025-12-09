@@ -12,7 +12,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { useArtboardStore } from '@/lib/store/artboard-store'
 
 export function ProjectDashboard() {
-    const { projects, loadProjects, setCurrentProject, isLoading, currentProject } = useProjectStore()
+    const { projects, loadProjects, setCurrentProject, deleteProject, isLoading, currentProject } = useProjectStore()
     const { loadArtboards } = useArtboardStore()
 
     useEffect(() => {
@@ -72,7 +72,15 @@ export function ProjectDashboard() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="bg-black/90 border-white/10 text-white">
                                                     <DropdownMenuItem onClick={(e) => e.stopPropagation()}>Settings</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={(e) => e.stopPropagation()} className="text-red-400">Delete</DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            deleteProject(project.id)
+                                                        }}
+                                                        className="text-red-400 focus:text-red-300 focus:bg-red-500/20"
+                                                    >
+                                                        Delete
+                                                    </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </CardHeader>

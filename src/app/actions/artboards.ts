@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export interface ArtboardData {
+    id?: string
     name: string
     width: number
     height: number
@@ -22,6 +23,7 @@ export async function createArtboard(projectId: string, data: ArtboardData) {
     const { data: artboard, error } = await supabase
         .from('artboards')
         .insert({
+            id: data.id, // Explicit ID if provided
             project_id: projectId,
             name: data.name,
             width: data.width,

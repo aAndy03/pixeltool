@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import { createArtboard, getArtboards, updateArtboard, deleteArtboard } from '@/app/actions/artboards'
+import { v4 as uuidv4 } from 'uuid'
+import { db } from '@/lib/db'
+import { syncEngine } from '@/lib/sync/sync-engine'
 
 export interface Artboard {
     id: string
@@ -17,6 +19,13 @@ interface ArtboardState {
     selectedArtboardIds: string[]
     isLoading: boolean
 
+    // Camera States
+    focusArtboardId: string | null
+    zoomToArtboardId: string | null
+
+    setFocus: (id: string | null) => void
+    setZoomTo: (id: string | null) => void
+
     loadArtboards: (projectId: string) => Promise<void>
 
     create: (projectId: string, data: Omit<Artboard, 'id' | 'sort_order'>) => Promise<boolean>
@@ -25,14 +34,6 @@ interface ArtboardState {
 
     selectArtboard: (id: string | null, multi?: boolean) => void
     reorderArtboards: (activeId: string, overId: string) => Promise<void>
-
-    // Transient state for camera focusing
-    focusArtboardId: string | null
-    setFocus: (id: string | null) => void
-
-    // Transient state for Zoom-to-Fit
-    zoomToArtboardId: string | null
-    setZoomTo: (id: string | null) => void
 }
 
 export const useArtboardStore = create<ArtboardState>((set, get) => ({
@@ -47,65 +48,94 @@ export const useArtboardStore = create<ArtboardState>((set, get) => ({
 
     loadArtboards: async (projectId: string) => {
         set({ isLoading: true })
-        const { success, data } = await getArtboards(projectId)
-        if (success && data) {
-            // Sort by sort_order
-            const sorted = (data as Artboard[]).sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
-            set({ artboards: sorted, isLoading: false })
-        } else {
-            console.error('Failed to load artboards')
-            set({ artboards: [], isLoading: false })
-        }
+
+        // 1. Load from LocalDB (Instant)
+        const localArtboards = await db.artboards
+            .where('project_id')
+            .equals(projectId)
+            .toArray() as Artboard[] // Dexie types can be loose
+
+        // Sort
+        const sorted = localArtboards.sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
+
+        set({ artboards: sorted, isLoading: false })
+
+        // 2. Trigger Background Sync (Pull)
+        syncEngine.pullChanges(projectId).then(async () => {
+            // Re-read after sync (could optimize to only update if changed)
+            const syncedArtboards = await db.artboards
+                .where('project_id')
+                .equals(projectId)
+                .toArray() as Artboard[]
+
+            const sortedSynced = syncedArtboards.sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
+            set({ artboards: sortedSynced })
+        })
     },
 
     create: async (projectId, data) => {
         const currentArtboards = get().artboards
-        // New artboard goes to top (highest sort_order + 1)
         const maxSort = currentArtboards.length > 0 ? Math.max(...currentArtboards.map(a => a.sort_order || 0)) : 0
         const newSortOrder = maxSort + 1
 
-        const { success, artboard } = await createArtboard(projectId, {
+        // GEN UUID LOCALLY
+        const newId = uuidv4()
+
+        const newArtboard: Artboard & { project_id: string } = {
+            id: newId,
+            project_id: projectId,
             name: data.name,
             width: data.width,
             height: data.height,
             x: data.x,
             y: data.y,
             settings: data.settings || {},
-            // We need to update createArtboard action to accept sort_order or handle it
-            // For now passing it implicitly if the action allows extra fields or via settings, 
-            // but effectively we need to add it to DB. 
-            // The action 'createArtboard' defined earlier didn't explicitly map it but passed 'data' to insert?
-            // Checking the action... it passed specific fields. I need to update the action too or 
-            // just rely on default 0 and update it immediately? Better to update action. 
-            // I'll assume I'll update the action next.
-            // For now, let's assume the action takes what we give or we update it after.
-            // Actually, best to update the action definition.
-        } as any)
-
-        if (success && artboard) {
-            // Local update
-            const newArtboard = { ...artboard, sort_order: newSortOrder } as Artboard
-            // Update sort_order on server? or did we pass it?
-            // If the server action ignores it, we might need a separate update.
-            // Let's assume we'll update the server action.
-
-            // To ensure consistency, we'll update it right away if strict
-            if (artboard.sort_order !== newSortOrder) {
-                await updateArtboard(artboard.id, { sort_order: newSortOrder })
-                newArtboard.sort_order = newSortOrder
-            }
-
-            set(state => ({ artboards: [newArtboard, ...state.artboards] })) // Add to start (Top)
-            return true
+            sort_order: newSortOrder
         }
-        return false
+
+        // Optimistic UI
+        set(state => ({ artboards: [newArtboard, ...state.artboards] }))
+
+        // Local Persist
+        await db.artboards.put(newArtboard)
+
+        // Queue Sync
+        await db.pendingSync.put({
+            id: uuidv4(),
+            entityType: 'artboard',
+            entityId: newId,
+            action: 'create',
+            timestamp: Date.now()
+        })
+
+        syncEngine.schedulePush()
+        return true
     },
 
     update: async (id, updates) => {
+        // Optimistic UI
         set(state => ({
             artboards: state.artboards.map(ab => ab.id === id ? { ...ab, ...updates } : ab)
         }))
-        await updateArtboard(id, updates)
+
+        // Local Persist (Merge)
+        // We need to fetch existing to keep projectId and other fields if updates is partial
+        const existing = await db.artboards.get(id)
+        if (existing) {
+            const updated = { ...existing, ...updates }
+            await db.artboards.put(updated)
+
+            // Queue Sync
+            await db.pendingSync.put({
+                id: uuidv4(),
+                entityType: 'artboard',
+                entityId: id,
+                action: 'update',
+                timestamp: Date.now()
+            })
+
+            syncEngine.schedulePush()
+        }
     },
 
     remove: async (id) => {
@@ -115,10 +145,19 @@ export const useArtboardStore = create<ArtboardState>((set, get) => ({
             selectedArtboardIds: state.selectedArtboardIds.filter(sid => sid !== id)
         }))
 
-        const { success } = await deleteArtboard(id)
-        if (!success) {
-            set({ artboards: previousArtboards })
-        }
+        // Local Persist
+        await db.artboards.delete(id)
+
+        // Queue Sync
+        await db.pendingSync.put({
+            id: uuidv4(),
+            entityType: 'artboard',
+            entityId: id,
+            action: 'delete',
+            timestamp: Date.now()
+        })
+
+        syncEngine.schedulePush()
     },
 
     selectArtboard: (id, multi = false) => {
@@ -133,7 +172,6 @@ export const useArtboardStore = create<ArtboardState>((set, get) => ({
                         : [...state.selectedArtboardIds, id]
                 }
             }
-
             return { selectedArtboardIds: [id] }
         })
     },
@@ -145,29 +183,40 @@ export const useArtboardStore = create<ArtboardState>((set, get) => ({
 
         if (oldIndex === -1 || newIndex === -1) return
 
-        // Create new array with moved item
         const newArtboards = [...artboards]
         const [movedItem] = newArtboards.splice(oldIndex, 1)
         newArtboards.splice(newIndex, 0, movedItem)
 
-        // Re-assign sort orders based on new index (Top of list = Highest sort_order?)
-        // Visual Layer Panel: Top item is Top Layer (Highest Z).
-        // List Index 0 is Top.
-        // So Index 0 gets Sort Order N, Index N gets Sort Order 0.
-
         const len = newArtboards.length
+
+        // Batch Updates for DB
         const updates: Promise<any>[] = []
 
         const updatedArtboards = newArtboards.map((artboard, index) => {
-            const newSortOrder = len - 1 - index // 0th item gets max sort_order
+            const newSortOrder = len - 1 - index
             if (artboard.sort_order !== newSortOrder) {
-                updates.push(updateArtboard(artboard.id, { sort_order: newSortOrder }))
+                // Update LocalDB
+                updates.push((async () => {
+                    const existing = await db.artboards.get(artboard.id)
+                    if (existing) {
+                        await db.artboards.put({ ...existing, sort_order: newSortOrder })
+                        await db.pendingSync.put({
+                            id: uuidv4(),
+                            entityType: 'artboard',
+                            entityId: artboard.id,
+                            action: 'update',
+                            timestamp: Date.now()
+                        })
+                    }
+                })())
                 return { ...artboard, sort_order: newSortOrder }
             }
             return artboard
         })
 
         set({ artboards: updatedArtboards })
+
         await Promise.all(updates)
+        syncEngine.schedulePush()
     }
 }))

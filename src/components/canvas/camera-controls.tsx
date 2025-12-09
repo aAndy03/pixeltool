@@ -1,21 +1,56 @@
 'use client'
 
 import { useThree } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { toPx } from '@/lib/math/units'
 import { useArtboardStore } from '@/lib/store/artboard-store'
+import { useProjectStore } from '@/lib/store/project-store'
 import * as THREE from 'three'
 
 const MAX_DISTANCE_M = 1000 // 1000 meters max zoom
 const PPI = 96 // Default standard
 
+// Debounce helper
+function debounce(func: Function, wait: number) {
+    let timeout: NodeJS.Timeout
+    return (...args: any[]) => {
+        clearTimeout(timeout)
+        timeout = setTimeout(() => func(...args), wait)
+    }
+}
+
 export function CameraControls() {
     const { gl, camera, size } = useThree()
     const controlsRef = useRef<any>(null)
 
-    // Use zoomToArtboardId as well
     const { artboards, focusArtboardId, setFocus, zoomToArtboardId, setZoomTo } = useArtboardStore()
+    const { saveCameraState } = useProjectStore()
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const debouncedSave = useCallback(
+        debounce((x: number, y: number, z: number) => {
+            saveCameraState(x, y, z)
+        }, 3000), // 3s debounce
+        []
+    )
+
+    // Monitor changes to controls
+    useEffect(() => {
+        const controls = controlsRef.current
+        if (!controls) return
+
+        const handleChange = () => {
+            const x = controls.target.x
+            const y = controls.target.y
+            const z = controls.object.position.z
+            // We save Target X/Y and Zoom (Distance)
+            debouncedSave(x, y, z)
+        }
+
+        controls.addEventListener('change', handleChange)
+        return () => controls.removeEventListener('change', handleChange)
+    }, [debouncedSave])
 
     // Helper: Check if point is in view
     const isPointInView = (x: number, y: number) => {
@@ -51,14 +86,10 @@ export function CameraControls() {
         if (targetBoard) {
             const controls = controlsRef.current
 
-            // Calculate fit distance
             const vFov = (camera as THREE.PerspectiveCamera).fov * Math.PI / 180
-            const margin = 1.2 // 20% margin
+            const margin = 1.2
 
-            // Height needed?
             const heightDist = (targetBoard.height * margin) / (2 * Math.tan(vFov / 2))
-
-            // Width needed? (Consider aspect ratio)
             const aspect = size.width / size.height
             const widthDist = (targetBoard.width * margin) / (2 * Math.tan(vFov / 2) * aspect)
 
@@ -98,6 +129,11 @@ export function CameraControls() {
             controls.target.y -= deltaY * speed
 
             controls.update()
+            // Manual update triggers 'change' event in OrbitControls usually? 
+            // R3F OrbitControls might dispatch it.
+            // If not, we might need to call handleChange manually here?
+            // Actually OrbitControls listens to properties, but manual pos update might not fire 'change'
+            // if we bypass controls.update(). But we call controls.update().
         }
 
         canvas.addEventListener('wheel', handleWheel, { passive: false })
