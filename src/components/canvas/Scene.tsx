@@ -6,6 +6,7 @@ import { useMemo, useEffect } from 'react'
 import { toPx } from '@/lib/math/units'
 import { ArtboardComponent } from './artboard'
 import { CameraControls } from './camera-controls'
+import { VisualGrid } from './visual-grid'
 import { useArtboardStore } from '@/lib/store/artboard-store'
 import { useProjectStore } from '@/lib/store/project-store'
 
@@ -17,10 +18,6 @@ const PPI = 96 // Default standard
 export function Scene() {
     const { artboards, selectArtboard } = useArtboardStore()
     const { currentProject } = useProjectStore()
-
-    // Calculate grid size in pixels
-    const gridSizePx = useMemo(() => toPx(GRID_SIZE_M, 'm', PPI), [])
-    const divisionSize = useMemo(() => 100, []) // Divisions for visual clarity
 
     return (
         <div className="absolute inset-0 z-0 bg-neutral-900">
@@ -49,11 +46,8 @@ export function Scene() {
                 <ambientLight intensity={0.5} />
                 <pointLight position={[toPx(10, 'm', PPI), toPx(10, 'm', PPI), toPx(10, 'm', PPI)]} />
 
-                <group rotation={[Math.PI / 2, 0, 0]}>
-                    <gridHelper args={[gridSizePx, divisionSize, 0x333333, 0x111111]} />
-                </group>
-
-                <axesHelper args={[toPx(0.5, 'm', PPI)]} />
+                {/* Grid */}
+                <VisualGrid />
 
                 {artboards.map(artboard => (
                     <ArtboardComponent key={artboard.id} data={artboard} />
