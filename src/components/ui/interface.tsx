@@ -16,6 +16,7 @@ import {
 import { signout } from '@/app/auth/actions'
 import { ArtboardPopover } from '../interface/artboard-popover'
 import { LayerPanel } from '../interface/layer-panel'
+import { PropertiesPanel } from '../interface/properties-panel'
 import { useSync } from '@/lib/sync/sync-engine'
 import { useRouter } from 'next/navigation'
 
@@ -123,7 +124,14 @@ export function Interface({ user }: InterfaceProps) {
             </header>
 
             {/* Layer Panel */}
-            {currentProject && <LayerPanel />}
+            {currentProject && (
+                <>
+                    <LayerPanel />
+                    <div className="absolute right-6 top-24 bottom-20 pointer-events-auto">
+                        <PropertiesPanel />
+                    </div>
+                </>
+            )}
 
             {/* Bottom Bar / Tools Placeholder */}
             <footer className="flex items-center justify-center w-full pointer-events-auto text-white/30 text-sm">

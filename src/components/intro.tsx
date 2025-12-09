@@ -29,7 +29,7 @@ export function Intro() {
                     transition={{ delay: 0.8 }}
                     className="text-xl md:text-2xl text-muted-foreground font-light tracking-[0.5em] uppercase"
                 >
-                    2025.A.5alpha
+                    2025.A.6alpha
                 </motion.p>
             </motion.div>
 

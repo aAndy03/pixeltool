@@ -13,7 +13,10 @@ interface ArtboardProps {
 }
 
 export function ArtboardComponent({ data }: ArtboardProps) {
-    const { width, height, x, y, name, id, sort_order } = data
+    const { width, height, x, y, name, id, sort_order, settings } = data
+    // Default values if not set
+    const bgColor = settings?.backgroundColor || '#ffffff'
+    const opacity = settings?.opacity ?? 1.0
 
     const { selectedArtboardIds, selectArtboard, update } = useArtboardStore()
     const isSelected = selectedArtboardIds.includes(id)
@@ -91,8 +94,10 @@ export function ArtboardComponent({ data }: ArtboardProps) {
             <mesh>
                 <planeGeometry args={[width, height]} />
                 <meshStandardMaterial
-                    color="white"
+                    color={bgColor}
                     roughness={0.5}
+                    transparent={true}
+                    opacity={opacity}
                     polygonOffset
                     polygonOffsetFactor={-1 * (sort_order || 0)} // Help visual sorting if needed
                 />
