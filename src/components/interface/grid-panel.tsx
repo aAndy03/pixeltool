@@ -21,7 +21,8 @@ export function GridPanel() {
         gridUnit, setGridUnit,
         cameraZoomLevel,
         isAxisEnabled, toggleAxis,
-        showGridDimensions, toggleGridDimensions
+        showGridDimensions, toggleGridDimensions,
+        isSnapEnabled, toggleSnap
     } = useUIStore()
 
     // Calculate value in selected unit
@@ -49,6 +50,16 @@ export function GridPanel() {
                         <Switch
                             checked={isGridEnabled}
                             onCheckedChange={toggleGrid}
+                            className="scale-75"
+                        />
+                    </div>
+
+                    {/* Snap Toggle */}
+                    <div className="flex items-center justify-between">
+                        <Label className="text-white text-xs">Snap to Grid</Label>
+                        <Switch
+                            checked={isSnapEnabled}
+                            onCheckedChange={toggleSnap}
                             className="scale-75"
                         />
                     </div>

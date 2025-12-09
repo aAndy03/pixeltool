@@ -4,6 +4,7 @@ import React, { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { Text, Line } from '@react-three/drei'
 import { Artboard, useArtboardStore } from '@/lib/store/artboard-store'
+import { useUIStore } from '@/lib/store/ui-store'
 import { formatPx } from '@/lib/math/units'
 import { useThree } from '@react-three/fiber'
 import { useGesture } from '@use-gesture/react'
@@ -64,9 +65,28 @@ export function ArtboardComponent({ data }: ArtboardProps) {
             // BUT, if we have a properties panel, it won't sync.
             // Let's try direct update first. If slow, optimize.
 
+            // Snapping Logic
+            const { isSnapEnabled, activeGridSpacing } = useUIStore.getState()
+
+            // Check modifier (Alt key disables snap temporarily)
+            // Note: event is the original event. React-use-gesture passes it.
+            const isAltPressed = event.altKey
+
+            let finalX = x + changeX
+            let finalY = y + changeY
+
+            if (isSnapEnabled && !isAltPressed) {
+                // PPI=96 default implies Artboards are in px but concept is 96px = 1in = 0.0254m
+                // We need to convert Grid Spacing (m) to Px
+                const snapPx = (activeGridSpacing / 0.0254) * 96
+
+                finalX = Math.round(finalX / snapPx) * snapPx
+                finalY = Math.round(finalY / snapPx) * snapPx
+            }
+
             update(id, {
-                x: x + changeX,
-                y: y + changeY
+                x: finalX,
+                y: finalY
             })
 
             return memo

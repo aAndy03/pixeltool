@@ -19,6 +19,12 @@ interface UIState {
     setGridUnit: (unit: string) => void
     cameraZoomLevel: number // meters
     setCameraZoomLevel: (level: number) => void
+
+    // Snapping
+    isSnapEnabled: boolean
+    toggleSnap: () => void
+    activeGridSpacing: number // meters
+    setGridSpacing: (spacing: number) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -39,4 +45,9 @@ export const useUIStore = create<UIState>((set) => ({
     setGridUnit: (unit) => set({ gridUnit: unit }),
     cameraZoomLevel: 1.5,
     setCameraZoomLevel: (level) => set({ cameraZoomLevel: level }),
+
+    isSnapEnabled: false,
+    toggleSnap: () => set((state) => ({ isSnapEnabled: !state.isSnapEnabled })),
+    activeGridSpacing: 0.1, // default 0.1m
+    setGridSpacing: (spacing) => set({ activeGridSpacing: spacing }),
 }))

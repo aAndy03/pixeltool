@@ -44,6 +44,8 @@ export function VisualGrid() {
             }
             if (newSpacing !== gridSpacing) {
                 setGridSpacing(newSpacing)
+                // Also update store for global access (Snapping)
+                useUIStore.getState().setGridSpacing(newSpacing)
             }
 
             lastUpdate.current = now
