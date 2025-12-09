@@ -9,8 +9,8 @@ import { CameraControls } from './camera-controls'
 import { useArtboardStore } from '@/lib/store/artboard-store'
 
 // Constants
-const MAX_DISTANCE_M = 1000 // 200 meters max zoom
-const GRID_SIZE_M = 1000 // 200 meters grid size
+const MAX_DISTANCE_M = 1000 // 1000 meters max zoom
+const GRID_SIZE_M = 1000 // 1000 meters grid size
 const PPI = 96 // Default standard
 
 export function Scene() {

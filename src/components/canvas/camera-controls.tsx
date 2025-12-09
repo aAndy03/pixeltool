@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { toPx } from '@/lib/math/units'
 
-const MAX_DISTANCE_M = 200 // 200 meters max zoom
+const MAX_DISTANCE_M = 1000 // 1000 meters max zoom
 const PPI = 96 // Default standard
 
 export function CameraControls() {
