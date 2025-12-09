@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { createArtboard, updateArtboard, deleteArtboard, getArtboards } from '@/app/actions/artboards'
-import { createProject, updateProject, deleteProject } from '@/app/actions/projects'
+import { bulkUpsertArtboards, bulkDeleteArtboards, getArtboards } from '@/app/actions/artboards'
+import { bulkUpsertProjects, bulkDeleteProjects } from '@/app/actions/projects'
 import { useEffect } from 'react'
 
 const debounce = (func: Function, wait: number) => {
@@ -17,7 +17,7 @@ export class SyncEngine {
     // Schedule a push operation (Debounced)
     schedulePush = debounce(() => {
         this.pushChanges()
-    }, 2000)
+    }, 3000) // 3 seconds debounce
 
     async pushChanges() {
         if (this.isSyncing) return
@@ -31,59 +31,71 @@ export class SyncEngine {
                 return
             }
 
-            // Collapse updates by entityId
-            const operations = new Map<string, any>()
+            // --- STRATEGY: Collapse & Group ---
+
+            // Map: EntityId -> Latest Action Task
+            const latestOps = new Map<string, any>()
 
             for (const task of pending) {
                 if (task.action === 'delete') {
-                    operations.set(task.entityId, task)
-                } else if (!operations.has(task.entityId) || operations.get(task.entityId).action !== 'delete') {
-                    operations.set(task.entityId, task)
+                    latestOps.set(task.entityId, task)
+                } else {
+                    // Create/Update: If existing is Delete, Delete wins.
+                    const existing = latestOps.get(task.entityId)
+                    if (!existing || existing.action !== 'delete') {
+                        latestOps.set(task.entityId, task)
+                    }
                 }
             }
 
-            for (const [id, task] of operations) {
+            // Buckets
+            const artboardsToUpsert: any[] = []
+            const artboardsToDelete: string[] = []
+            const projectsToUpsert: any[] = []
+            const projectsToDelete: string[] = []
+
+            // Process Map
+            for (const [id, task] of latestOps) {
                 if (task.entityType === 'artboard') {
                     if (task.action === 'delete') {
-                        await deleteArtboard(id)
-                    } else if (task.action === 'create') {
+                        artboardsToDelete.push(id)
+                    } else {
                         const data = await db.artboards.get(id)
-                        if (data) {
-                            await createArtboard(data.project_id, {
-                                ...data,
-                                id: data.id,
-                                settings: data.settings || {}
-                            } as any)
-                        }
-                    } else if (task.action === 'update') {
-                        const data = await db.artboards.get(id)
-                        if (data) {
-                            await updateArtboard(id, data)
-                        }
+                        if (data) artboardsToUpsert.push({
+                            ...data,
+                            id: data.id,
+                            settings: data.settings || {}
+                        })
                     }
                 } else if (task.entityType === 'project') {
                     if (task.action === 'delete') {
-                        await deleteProject(id)
-                    } else if (task.action === 'create') {
+                        projectsToDelete.push(id)
+                    } else {
                         const data = await db.projects.get(id)
-                        if (data) {
-                            await createProject({
-                                id: data.id,
-                                name: data.name
-                            })
-                        }
-                    } else if (task.action === 'update') {
-                        const data = await db.projects.get(id)
-                        if (data) {
-                            await updateProject(id, {
-                                name: data.name,
-                                settings: data.settings
-                            })
-                        }
+                        if (data) projectsToUpsert.push({
+                            id: data.id,
+                            name: data.name,
+                            settings: data.settings
+                        })
                     }
                 }
+            }
 
-                await db.pendingSync.where('entityId').equals(id).delete()
+            // --- EXECUTE BULK ACTIONS ---
+
+            // Artboards
+            if (artboardsToUpsert.length > 0) await bulkUpsertArtboards(artboardsToUpsert)
+            if (artboardsToDelete.length > 0) await bulkDeleteArtboards(artboardsToDelete)
+
+            // Projects
+            if (projectsToUpsert.length > 0) await bulkUpsertProjects(projectsToUpsert)
+            if (projectsToDelete.length > 0) await bulkDeleteProjects(projectsToDelete)
+
+            // --- CLEANUP ---
+            // Remove processed IDs from pendingSync
+            const processedIds = Array.from(latestOps.keys())
+            if (processedIds.length > 0) {
+                await db.pendingSync.where('entityId').anyOf(processedIds).delete()
             }
 
         } catch (error) {
@@ -124,9 +136,10 @@ export function useSync(projectId: string) {
 
         syncEngine.pullChanges(projectId)
 
+        // Polling Strategy: 5 Minutes (Optimization)
         const interval = setInterval(() => {
             syncEngine.pullChanges(projectId)
-        }, 60000)
+        }, 300000) // 5 minutes
 
         return () => clearInterval(interval)
     }, [projectId])

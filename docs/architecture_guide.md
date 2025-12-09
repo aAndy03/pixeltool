@@ -18,18 +18,31 @@ To handle high-frequency interactions (like dragging artboards) without overload
     -   **Conflict Protection**: Filter out any records that are currently "Dirty" (pending sync) in LocalDB. This ensures user's unsaved changes are NOT overwritten by older server data.
     -   **Merge**: Safe records are bulk-upserted into LocalDB.
 
-### 2. Writing Data (User Interaction)
-1.  **Action**: User creates Project / moves Artboard.
-2.  **State Update**: Zustand Store updates UI immediately (Optimistic).
-3.  **Local Persist**:
-    -   Update Entity in LocalDB (`artboards` or `projects` table).
-    -   Add entry to `pendingSync` table.
-4.  **Push Sync**: Background worker (debounced 2s) reads `pendingSync`, batches requests, and sends to Supabase.
+### 2. Writing Data (Optimized Bulk Sync)
+1.  **Action**: User creates Project / moves Artboard (potentially 100s of times/sec).
+2.  **State Update**: UI updates randomly (Optimistic).
+3.  **Local Persist**: Changes saved to `Dexie` immediately. Each change adds a row to `pendingSync`.
+4.  **Debounce**: Sync Engine waits for **3 Seconds** of inactivity.
+5.  **Coalesce**: All 100 moves for "Artboard A" are collapsed into ONE final state.
+6.  **Bulk Push**: The engine sends a single `bulkUpsert` request to Supabase containing ALL changed entities.
+    -   *Efficiency*: 100 moves = 1 Request.
+    -   *Cost*: Minimized Supabase Bill.
 
-## Entities Supported
+### 3. Reading Data (Polled Sync)
+-   **Interval**: 5 Minutes (300,000ms).
+-   **Purpose**: Fetch changes from other clients/devices.
+-   **Conflict Protection**: Ignores any entity currently in `pendingSync` (Local Dirty State protection).
 -   **Artboards**: Full CRUD + Sorting.
 -   **Projects**: Create, Update Settings/Name.
 
+
+## Session Persistence (Version 2025.A.5+)
+-   **Method**: URL Query Parameter (`?project=<ID>`).
+-   **Behavior**:
+    -   Opening a project appends `?project=ID` to the URL.
+    -   Refreshing the page reads this param and auto-loads the project (Local-First).
+    -   Clicking "Back" removes the param.
+-   **Benefit**: Users can bookmark specific projects or refresh without losing context.
 
 ## How to Add New Features
 

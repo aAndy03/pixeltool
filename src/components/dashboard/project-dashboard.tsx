@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Folder, Clock, MoreVertical } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -10,18 +10,36 @@ import { useProjectStore } from '@/lib/store/project-store'
 import { CreateProjectPopover } from './create-project-popover'
 import { formatDistanceToNow } from 'date-fns'
 import { useArtboardStore } from '@/lib/store/artboard-store'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export function ProjectDashboard() {
     const { projects, loadProjects, setCurrentProject, deleteProject, isLoading, currentProject } = useProjectStore()
     const { loadArtboards } = useArtboardStore()
+    const router = useRouter()
+    const searchParams = useSearchParams()
 
+    // Load Projects on mount
     useEffect(() => {
         loadProjects()
     }, [loadProjects])
 
+    // URL Persistence Logic
+    useEffect(() => {
+        const projectId = searchParams.get('project')
+        if (projectId && !currentProject && projects.length > 0) {
+            const target = projects.find(p => p.id === projectId)
+            if (target) {
+                setCurrentProject(target)
+                loadArtboards(target.id)
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, projects, loadArtboards])
+
     const handleOpenProject = async (project: any) => {
         setCurrentProject(project)
         await loadArtboards(project.id)
+        router.push(`/?project=${project.id}`)
     }
 
     // Hide dashboard if inside a project

@@ -14,6 +14,7 @@ export interface ArtboardData {
     sort_order?: number
 }
 
+// Single (Legacy/Direct) Actions
 export async function createArtboard(projectId: string, data: ArtboardData) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -23,7 +24,7 @@ export async function createArtboard(projectId: string, data: ArtboardData) {
     const { data: artboard, error } = await supabase
         .from('artboards')
         .insert({
-            id: data.id, // Explicit ID if provided
+            id: data.id,
             project_id: projectId,
             name: data.name,
             width: data.width,
@@ -50,7 +51,7 @@ export async function getArtboards(projectId: string) {
         .from('artboards')
         .select('*')
         .eq('project_id', projectId)
-        .order('sort_order', { ascending: false }) // Initial sort by order
+        .order('sort_order', { ascending: false })
 
     if (error) return { error: error.message, data: [] }
     return { success: true, data }
@@ -58,8 +59,6 @@ export async function getArtboards(projectId: string) {
 
 export async function updateArtboard(id: string, updates: any) {
     const supabase = await createClient()
-
-    // RLS policy handles auth check implicitly via 'using' clause
     const { error } = await supabase
         .from('artboards')
         .update({
@@ -74,11 +73,58 @@ export async function updateArtboard(id: string, updates: any) {
 
 export async function deleteArtboard(id: string) {
     const supabase = await createClient()
-
     const { error } = await supabase
         .from('artboards')
         .delete()
         .eq('id', id)
+
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+// BULK ACTIONS (Optimization)
+
+export async function bulkUpsertArtboards(artboards: any[]) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Unauthorized' }
+
+    if (artboards.length === 0) return { success: true }
+
+    // Prepare data for upsert
+    // Must include updated_at
+    const payload = artboards.map(a => ({
+        id: a.id,
+        project_id: a.project_id,
+        name: a.name,
+        width: a.width,
+        height: a.height,
+        x: a.x,
+        y: a.y,
+        settings: a.settings,
+        sort_order: a.sort_order,
+        updated_at: new Date().toISOString()
+    }))
+
+    const { error } = await supabase
+        .from('artboards')
+        .upsert(payload)
+
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+export async function bulkDeleteArtboards(ids: string[]) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Unauthorized' }
+
+    if (ids.length === 0) return { success: true }
+
+    const { error } = await supabase
+        .from('artboards')
+        .delete()
+        .in('id', ids)
 
     if (error) return { error: error.message }
     return { success: true }

@@ -78,3 +78,44 @@ export async function getProjects() {
     if (error) return { error: error.message, data: [] }
     return { success: true, data }
 }
+
+// BULK ACTIONS
+
+export async function bulkUpsertProjects(projects: any[]) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Unauthorized' }
+
+    if (projects.length === 0) return { success: true }
+
+    const payload = projects.map(p => ({
+        id: p.id,
+        user_id: user.id,
+        name: p.name,
+        settings: p.settings,
+        updated_at: new Date().toISOString()
+    }))
+
+    const { error } = await supabase
+        .from('projects')
+        .upsert(payload)
+
+    if (error) return { error: error.message }
+    return { success: true }
+}
+
+export async function bulkDeleteProjects(ids: string[]) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Unauthorized' }
+
+    if (ids.length === 0) return { success: true }
+
+    const { error } = await supabase
+        .from('projects')
+        .delete()
+        .in('id', ids)
+
+    if (error) return { error: error.message }
+    return { success: true }
+}

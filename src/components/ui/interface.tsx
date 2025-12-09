@@ -17,6 +17,7 @@ import { signout } from '@/app/auth/actions'
 import { ArtboardPopover } from '../interface/artboard-popover'
 import { LayerPanel } from '../interface/layer-panel'
 import { useSync } from '@/lib/sync/sync-engine'
+import { useRouter } from 'next/navigation'
 
 interface InterfaceProps {
     user: User | null
@@ -26,9 +27,15 @@ export function Interface({ user }: InterfaceProps) {
     const { openLogin, openSignup } = useUIStore()
     const { currentProject, setCurrentProject } = useProjectStore()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const router = useRouter()
 
     // Start background sync if project is active
     useSync(currentProject?.id || '')
+
+    const handleBackToProjects = () => {
+        setCurrentProject(null as any)
+        router.replace('/')
+    }
 
     return (
         <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6">
@@ -39,7 +46,7 @@ export function Interface({ user }: InterfaceProps) {
                     {/* Back to Projects */}
                     {currentProject && (
                         <button
-                            onClick={() => setCurrentProject(null as any)}
+                            onClick={handleBackToProjects}
                             className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/50 hover:text-white mr-1"
                             title="Back to Projects"
                         >
