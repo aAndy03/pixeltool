@@ -8,11 +8,16 @@ import { toPx, fromPx, formatPx, DEFAULT_PPI } from '@/lib/math/units'
 import * as THREE from 'three'
 
 // Thresholds for swapping grid scales
+// 'height' is the camera Z distance converted to meters
+// 'spacing' is the grid cell size in meters
 const ZOOM_LEVELS = [
-    { height: 5, spacing: 0.1 },  // < 5m -> 10cm grid
-    { height: 50, spacing: 1 },   // < 50m -> 1m grid
-    { height: 500, spacing: 10 }, // < 500m -> 10m grid
-    { height: 5000, spacing: 100 } // < 5000m -> 100m grid
+    { height: 0.5, spacing: 0.01 },   // < 0.5m camera height -> 1cm grid (10mm)
+    { height: 1, spacing: 0.05 },     // < 1m -> 5cm grid (50mm)  
+    { height: 2, spacing: 0.1 },      // < 2m -> 10cm grid (100mm)
+    { height: 10, spacing: 0.5 },     // < 10m -> 50cm grid
+    { height: 50, spacing: 1 },       // < 50m -> 1m grid
+    { height: 500, spacing: 10 },     // < 500m -> 10m grid
+    { height: 5000, spacing: 100 }    // < 5000m -> 100m grid
 ]
 
 export function VisualGrid() {

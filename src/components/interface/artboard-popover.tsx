@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useArtboardStore } from '@/lib/store/artboard-store'
 import { useProjectStore } from '@/lib/store/project-store'
-import { toPx } from '@/lib/math/units'
+import { toPx, convertValue, formatAspectRatio, DisplayUnit, DEFAULT_PPI } from '@/lib/math/units'
 import { Lock, Unlock, PlusSquare } from 'lucide-react'
 
 export function ArtboardPopover() {
@@ -18,7 +18,7 @@ export function ArtboardPopover() {
     // Inputs
     const [width, setWidth] = useState<number>(210)
     const [height, setHeight] = useState<number>(297)
-    const [unit, setUnit] = useState('mm')
+    const [unit, setUnit] = useState<DisplayUnit>('mm')
     const [dpi, setDpi] = useState<number>(300)
     const [name, setName] = useState('Artboard')
     const [lockedRatio, setLockedRatio] = useState(false)
@@ -51,6 +51,16 @@ export function ArtboardPopover() {
         if (!lockedRatio) setRatio(width / height)
     }
 
+    // Convert values when unit changes
+    const handleUnitChange = (newUnit: DisplayUnit) => {
+        const ppi = dpi || DEFAULT_PPI
+        const newWidth = convertValue(width, unit, newUnit, ppi)
+        const newHeight = convertValue(height, unit, newUnit, ppi)
+        setWidth(Number(newWidth.toFixed(2)))
+        setHeight(Number(newHeight.toFixed(2)))
+        setUnit(newUnit)
+    }
+
     const handleCreate = async () => {
         if (!currentProject) {
             alert('Please select or create a project first.')
@@ -58,8 +68,9 @@ export function ArtboardPopover() {
         }
 
         setIsPending(true)
-        const widthPx = toPx(width, unit as any, 96)
-        const heightPx = toPx(height, unit as any, 96)
+        // Use screen PPI (96) for canvas coordinates, store creation DPI in settings
+        const widthPx = toPx(width, unit, DEFAULT_PPI)
+        const heightPx = toPx(height, unit, DEFAULT_PPI)
 
         await create(currentProject.id, {
             name,
@@ -118,22 +129,41 @@ export function ArtboardPopover() {
                         </div>
                         <div className="grid gap-2 w-[70px]">
                             <Label className="text-xs">Unit</Label>
-                            <Select value={unit} onValueChange={setUnit}>
+                            <Select value={unit} onValueChange={(v) => handleUnitChange(v as DisplayUnit)}>
                                 <SelectTrigger className="h-8 bg-white/5 border-white/10 text-xs"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="mm">mm</SelectItem>
                                     <SelectItem value="cm">cm</SelectItem>
                                     <SelectItem value="m">m</SelectItem>
+                                    <SelectItem value="in">in</SelectItem>
                                     <SelectItem value="px">px</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
 
+                    {/* DPI Row */}
+                    <div className="flex gap-2 items-end">
+                        <div className="grid gap-2 flex-1">
+                            <Label className="text-xs">DPI</Label>
+                            <Input
+                                type="number"
+                                value={dpi}
+                                onChange={e => setDpi(Number(e.target.value))}
+                                className="h-8 bg-white/5 border-white/10"
+                                min={1}
+                                max={1200}
+                            />
+                        </div>
+                        <div className="text-[10px] text-muted-foreground pb-2">
+                            {dpi < 150 ? 'Low' : dpi < 300 ? 'Medium' : 'High'} quality
+                        </div>
+                    </div>
+
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                         <div className="flex items-center gap-1 cursor-pointer hover:text-white" onClick={toggleLock}>
                             {lockedRatio ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                            <span>Ratio: {ratio.toFixed(2)}</span>
+                            <span>Ratio: {formatAspectRatio(width, height)}</span>
                         </div>
                     </div>
 

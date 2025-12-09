@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { Text, Line } from '@react-three/drei'
 import { Artboard, useArtboardStore } from '@/lib/store/artboard-store'
 import { useUIStore } from '@/lib/store/ui-store'
-import { formatPx } from '@/lib/math/units'
+import { fromPx, DisplayUnit, DEFAULT_PPI } from '@/lib/math/units'
 import { useThree } from '@react-three/fiber'
 import { useGesture } from '@use-gesture/react'
 
@@ -18,6 +18,15 @@ export function ArtboardComponent({ data }: ArtboardProps) {
     // Default values if not set
     const bgColor = settings?.backgroundColor || '#ffffff'
     const opacity = settings?.opacity ?? 1.0
+    const displayUnit: DisplayUnit = settings?.physicalUnit || 'mm'
+
+    // Format dimension for display using artboard's stored unit
+    const formatDimension = (valuePx: number) => {
+        const val = fromPx(valuePx, displayUnit, DEFAULT_PPI)
+        // Show fewer decimals for larger units
+        const decimals = displayUnit === 'm' ? 2 : displayUnit === 'cm' ? 1 : displayUnit === 'px' ? 0 : 2
+        return `${val.toFixed(decimals)} ${displayUnit}`
+    }
 
     const { selectedArtboardIds, selectArtboard, update } = useArtboardStore()
     const isSelected = selectedArtboardIds.includes(id)
@@ -159,7 +168,7 @@ export function ArtboardComponent({ data }: ArtboardProps) {
                 fontSize={10}
                 color={isSelected ? "#0066ff" : "#888888"}
             >
-                {formatPx(width)}
+                {formatDimension(width)}
             </Text>
             <Text
                 position={[-width / 2 - 5, 0, 0]}
@@ -167,7 +176,7 @@ export function ArtboardComponent({ data }: ArtboardProps) {
                 fontSize={10}
                 color={isSelected ? "#0066ff" : "#888888"}
             >
-                {formatPx(height)}
+                {formatDimension(height)}
             </Text>
         </group>
     )

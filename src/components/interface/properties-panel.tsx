@@ -1,12 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import { useArtboardStore } from "@/lib/store/artboard-store"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
-import { AlignVerticalSpaceAround, AlignHorizontalSpaceAround, Smartphone, Monitor, Type } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Smartphone, Monitor, Type } from "lucide-react"
+import { fromPx, toPx, DisplayUnit, DEFAULT_PPI, formatAspectRatio } from '@/lib/math/units'
 
 export function PropertiesPanel() {
     const { artboards, selectedArtboardIds, update } = useArtboardStore()
@@ -30,6 +33,23 @@ export function PropertiesPanel() {
         update(selectedId, {
             settings: { ...currentSettings, [field]: value }
         })
+    }
+
+    // Get the artboard's stored unit and DPI for display
+    const displayUnit: DisplayUnit = artboard.settings?.physicalUnit || 'mm'
+    const artboardDpi = artboard.settings?.dpi || 300
+
+    // Convert pixel dimensions to display unit
+    const displayWidth = fromPx(artboard.width, displayUnit, DEFAULT_PPI)
+    const displayHeight = fromPx(artboard.height, displayUnit, DEFAULT_PPI)
+
+    const handleDimensionChange = (field: 'width' | 'height', valueInUnit: number) => {
+        const valuePx = toPx(valueInUnit, displayUnit, DEFAULT_PPI)
+        handleUpdate(field, valuePx)
+    }
+
+    const handleUnitChange = (newUnit: DisplayUnit) => {
+        handleSettingUpdate('physicalUnit', newUnit)
     }
 
     const toggleOrientation = () => {
@@ -68,7 +88,21 @@ export function PropertiesPanel() {
 
                 {/* Transform */}
                 <div className="space-y-4">
-                    <Label className="text-xs text-white/50 font-bold">Transform</Label>
+                    <div className="flex justify-between items-center">
+                        <Label className="text-xs text-white/50 font-bold">Dimensions</Label>
+                        <Select value={displayUnit} onValueChange={(v) => handleUnitChange(v as DisplayUnit)}>
+                            <SelectTrigger className="w-16 h-6 bg-white/5 border-white/10 text-[10px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="mm">mm</SelectItem>
+                                <SelectItem value="cm">cm</SelectItem>
+                                <SelectItem value="m">m</SelectItem>
+                                <SelectItem value="in">in</SelectItem>
+                                <SelectItem value="px">px</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -93,38 +127,64 @@ export function PropertiesPanel() {
 
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                            <Label className="text-[10px] text-white/40">W</Label>
+                            <Label className="text-[10px] text-white/40">W ({displayUnit})</Label>
                             <Input
                                 type="number"
-                                value={Math.round(artboard.width)}
-                                onChange={(e) => handleUpdate('width', Number(e.target.value))}
+                                value={Number(displayWidth.toFixed(2))}
+                                onChange={(e) => handleDimensionChange('width', Number(e.target.value))}
                                 className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
                             />
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-[10px] text-white/40">H</Label>
+                            <Label className="text-[10px] text-white/40">H ({displayUnit})</Label>
                             <Input
                                 type="number"
-                                value={Math.round(artboard.height)}
-                                onChange={(e) => handleUpdate('height', Number(e.target.value))}
+                                value={Number(displayHeight.toFixed(2))}
+                                onChange={(e) => handleDimensionChange('height', Number(e.target.value))}
                                 className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
                             />
                         </div>
                     </div>
 
-                    {/* Orientation */}
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="w-full text-xs h-7 bg-white/5 hover:bg-white/10 text-white/70"
-                        onClick={toggleOrientation}
-                    >
-                        {artboard.width > artboard.height ? <Monitor className="w-3 h-3 mr-2" /> : <Smartphone className="w-3 h-3 mr-2" />}
-                        Rotate
-                    </Button>
+                    {/* Ratio & Orientation */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-white/40">
+                            Ratio: {formatAspectRatio(artboard.width, artboard.height)}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[10px] px-2 text-white/70 hover:text-white"
+                            onClick={toggleOrientation}
+                        >
+                            {artboard.width > artboard.height ? <Monitor className="w-3 h-3 mr-1" /> : <Smartphone className="w-3 h-3 mr-1" />}
+                            Rotate
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="h-px bg-white/10" />
+
+                {/* DPI Settings */}
+                <div className="space-y-3">
+                    <Label className="text-xs text-white/50 font-bold">Print Settings</Label>
+                    <div className="flex items-center justify-between">
+                        <Label className="text-xs text-white/70">DPI</Label>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                type="number"
+                                value={artboardDpi}
+                                onChange={(e) => handleSettingUpdate('dpi', Number(e.target.value))}
+                                className="w-16 h-6 bg-black/50 border-white/10 text-[10px] text-white px-2"
+                                min={1}
+                                max={1200}
+                            />
+                            <span className="text-[10px] text-white/40">
+                                {artboardDpi < 150 ? 'Low' : artboardDpi < 300 ? 'Med' : 'High'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Appearance */}
                 <div className="space-y-4">
