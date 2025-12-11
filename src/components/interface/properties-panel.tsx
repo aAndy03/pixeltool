@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useArtboardStore } from "@/lib/store/artboard-store"
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { MathInput } from "@/components/ui/math-input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
@@ -64,7 +65,8 @@ export function PropertiesPanel() {
 
     return (
         <div
-            className="w-64 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg flex flex-col pointer-events-auto shadow-2xl h-full overflow-hidden"
+            className="w-64 bg-black/40 border border-white/10 rounded-lg flex flex-col pointer-events-auto shadow-2xl h-full overflow-hidden"
+            style={{ backdropFilter: 'blur(20px) saturate(150%)', WebkitBackdropFilter: 'blur(20px) saturate(150%)' }}
             onPointerDown={(e) => e.stopPropagation()} // Prevent scene interactions
         >
             <CardHeader className="p-3 border-b border-white/10 flex flex-row items-center space-y-0">
@@ -74,7 +76,7 @@ export function PropertiesPanel() {
                 </CardTitle>
             </CardHeader>
 
-            <CardContent className="p-4 space-y-6">
+            <CardContent className="p-4 space-y-6 ">
 
                 {/* Name */}
                 <div className="space-y-2">
@@ -107,19 +109,19 @@ export function PropertiesPanel() {
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                             <Label className="text-[10px] text-white/40">X</Label>
-                            <Input
-                                type="number"
-                                value={Math.round(artboard.x)}
-                                onChange={(e) => handleUpdate('x', Number(e.target.value))}
+                            <MathInput
+                                value={artboard.x}
+                                decimals={0}
+                                onChange={(val) => handleUpdate('x', val)}
                                 className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
                             />
                         </div>
                         <div className="space-y-1">
                             <Label className="text-[10px] text-white/40">Y</Label>
-                            <Input
-                                type="number"
-                                value={Math.round(artboard.y)}
-                                onChange={(e) => handleUpdate('y', Number(e.target.value))}
+                            <MathInput
+                                value={artboard.y}
+                                decimals={0}
+                                onChange={(val) => handleUpdate('y', val)}
                                 className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
                             />
                         </div>
@@ -128,19 +130,17 @@ export function PropertiesPanel() {
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                             <Label className="text-[10px] text-white/40">W ({displayUnit})</Label>
-                            <Input
-                                type="number"
-                                value={Number(displayWidth.toFixed(2))}
-                                onChange={(e) => handleDimensionChange('width', Number(e.target.value))}
+                            <MathInput
+                                value={displayWidth}
+                                onChange={(val) => handleDimensionChange('width', val)}
                                 className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
                             />
                         </div>
                         <div className="space-y-1">
                             <Label className="text-[10px] text-white/40">H ({displayUnit})</Label>
-                            <Input
-                                type="number"
-                                value={Number(displayHeight.toFixed(2))}
-                                onChange={(e) => handleDimensionChange('height', Number(e.target.value))}
+                            <MathInput
+                                value={displayHeight}
+                                onChange={(val) => handleDimensionChange('height', val)}
                                 className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
                             />
                         </div>
@@ -171,13 +171,11 @@ export function PropertiesPanel() {
                     <div className="flex items-center justify-between">
                         <Label className="text-xs text-white/70">DPI</Label>
                         <div className="flex items-center gap-2">
-                            <Input
-                                type="number"
+                            <MathInput
                                 value={artboardDpi}
-                                onChange={(e) => handleSettingUpdate('dpi', Number(e.target.value))}
+                                decimals={0}
+                                onChange={(val) => handleSettingUpdate('dpi', val)}
                                 className="w-16 h-6 bg-black/50 border-white/10 text-[10px] text-white px-2"
-                                min={1}
-                                max={1200}
                             />
                             <span className="text-[10px] text-white/40">
                                 {artboardDpi < 150 ? 'Low' : artboardDpi < 300 ? 'Med' : 'High'}

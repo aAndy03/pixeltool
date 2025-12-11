@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MathInput } from '@/components/ui/math-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useArtboardStore } from '@/lib/store/artboard-store'
@@ -111,19 +112,19 @@ export function ArtboardPopover() {
                     <div className="flex gap-2">
                         <div className="grid gap-2 flex-1">
                             <Label className="text-xs">W</Label>
-                            <Input
-                                type="number"
+                            <Label className="text-xs">W</Label>
+                            <MathInput
                                 value={width}
-                                onChange={e => handleWidthChange(Number(e.target.value))}
+                                onChange={handleWidthChange}
                                 className="h-8 bg-white/5 border-white/10"
                             />
                         </div>
                         <div className="grid gap-2 flex-1">
                             <Label className="text-xs">H</Label>
-                            <Input
-                                type="number"
+                            <Label className="text-xs">H</Label>
+                            <MathInput
                                 value={height}
-                                onChange={e => handleHeightChange(Number(e.target.value))}
+                                onChange={handleHeightChange}
                                 className="h-8 bg-white/5 border-white/10"
                             />
                         </div>
@@ -146,13 +147,12 @@ export function ArtboardPopover() {
                     <div className="flex gap-2 items-end">
                         <div className="grid gap-2 flex-1">
                             <Label className="text-xs">DPI</Label>
-                            <Input
-                                type="number"
+                            <Label className="text-xs">DPI</Label>
+                            <MathInput
                                 value={dpi}
-                                onChange={e => setDpi(Number(e.target.value))}
+                                decimals={0}
+                                onChange={setDpi}
                                 className="h-8 bg-white/5 border-white/10"
-                                min={1}
-                                max={1200}
                             />
                         </div>
                         <div className="text-[10px] text-muted-foreground pb-2">

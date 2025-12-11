@@ -173,7 +173,8 @@ export function LayerPanel() {
 
     return (
         <div
-            className="absolute left-4 top-20 bottom-20 w-64 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg flex flex-col pointer-events-auto shadow-2xl"
+            className="absolute left-4 top-20 bottom-20 w-64 bg-black/40 border border-white/10 rounded-lg flex flex-col pointer-events-auto shadow-2xl"
+            style={{ backdropFilter: 'blur(20px) saturate(150%)', WebkitBackdropFilter: 'blur(20px) saturate(150%)' }}
             onPointerDown={(e) => e.stopPropagation()} // Prevent scene interactions through panel
             // Click on background -> Deselect
             onClick={() => selectArtboard(null)}
@@ -214,6 +215,6 @@ export function LayerPanel() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     )
 }

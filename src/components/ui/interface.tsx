@@ -42,6 +42,9 @@ export function Interface({ user }: InterfaceProps) {
     return (
         <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6">
 
+            {/* Vignette for Top Bar Visibility */}
+            <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/80 to-transparent -z-10" />
+
             {/* Top Bar */}
             <header className="flex items-center justify-between w-full pointer-events-auto">
                 <div className="flex items-center gap-4">

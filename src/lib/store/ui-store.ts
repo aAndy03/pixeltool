@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 interface UIState {
     isLoginOpen: boolean
@@ -35,33 +36,49 @@ interface UIState {
     setCameraAnimating: (isAnimating: boolean) => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
-    isLoginOpen: false,
-    isSignupOpen: false,
-    openLogin: () => set({ isLoginOpen: true, isSignupOpen: false }),
-    closeLogin: () => set({ isLoginOpen: false }),
-    openSignup: () => set({ isSignupOpen: true, isLoginOpen: false }),
-    closeSignup: () => set({ isSignupOpen: false }),
+export const useUIStore = create<UIState>()(
+    persist(
+        (set) => ({
+            isLoginOpen: false,
+            isSignupOpen: false,
+            openLogin: () => set({ isLoginOpen: true, isSignupOpen: false }),
+            closeLogin: () => set({ isLoginOpen: false }),
+            openSignup: () => set({ isSignupOpen: true, isLoginOpen: false }),
+            closeSignup: () => set({ isSignupOpen: false }),
 
-    isGridEnabled: true,
-    toggleGrid: () => set((state) => ({ isGridEnabled: !state.isGridEnabled })),
-    isAxisEnabled: true,
-    toggleAxis: () => set((state) => ({ isAxisEnabled: !state.isAxisEnabled })),
-    showGridDimensions: false,
-    toggleGridDimensions: () => set((state) => ({ showGridDimensions: !state.showGridDimensions })),
-    gridUnit: 'mm',
-    setGridUnit: (unit) => set({ gridUnit: unit }),
-    cameraZoomLevel: 1.5,
-    setCameraZoomLevel: (level) => set({ cameraZoomLevel: level }),
+            isGridEnabled: true,
+            toggleGrid: () => set((state) => ({ isGridEnabled: !state.isGridEnabled })),
+            isAxisEnabled: true,
+            toggleAxis: () => set((state) => ({ isAxisEnabled: !state.isAxisEnabled })),
+            showGridDimensions: false,
+            toggleGridDimensions: () => set((state) => ({ showGridDimensions: !state.showGridDimensions })),
+            gridUnit: 'mm',
+            setGridUnit: (unit) => set({ gridUnit: unit }),
+            cameraZoomLevel: 1.5,
+            setCameraZoomLevel: (level) => set({ cameraZoomLevel: level }),
 
-    isSnapEnabled: false,
-    toggleSnap: () => set((state) => ({ isSnapEnabled: !state.isSnapEnabled })),
-    activeGridSpacing: 0.1, // default 0.1m
-    setGridSpacing: (spacing) => set({ activeGridSpacing: spacing }),
+            isSnapEnabled: false,
+            toggleSnap: () => set((state) => ({ isSnapEnabled: !state.isSnapEnabled })),
+            activeGridSpacing: 0.1, // default 0.1m
+            setGridSpacing: (spacing) => set({ activeGridSpacing: spacing }),
 
-    snapGuides: { x: null, y: null },
-    setSnapGuides: (guides) => set({ snapGuides: guides }),
+            snapGuides: { x: null, y: null },
+            setSnapGuides: (guides) => set({ snapGuides: guides }),
 
-    isCameraAnimating: false,
-    setCameraAnimating: (isAnimating) => set({ isCameraAnimating: isAnimating }),
-}))
+            isCameraAnimating: false,
+            setCameraAnimating: (isAnimating) => set({ isCameraAnimating: isAnimating }),
+        }),
+        {
+            name: 'pixeltool-ui-storage',
+            storage: createJSONStorage(() => localStorage),
+            partialize: (state) => ({
+                isGridEnabled: state.isGridEnabled,
+                isAxisEnabled: state.isAxisEnabled,
+                showGridDimensions: state.showGridDimensions,
+                gridUnit: state.gridUnit,
+                isSnapEnabled: state.isSnapEnabled,
+                activeGridSpacing: state.activeGridSpacing,
+            }),
+        }
+    )
+)
