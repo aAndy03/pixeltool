@@ -30,7 +30,7 @@ interface VisibleCell {
 }
 
 export function VisualGrid() {
-    const { isGridEnabled, isAxisEnabled, showGridDimensions, setCameraZoomLevel, gridUnit } = useUIStore()
+    const { isGridEnabled, isAxisEnabled, showGridDimensions, setCameraZoomLevel, gridUnit, isCameraAnimating } = useUIStore()
     const { camera, size } = useThree()
     const gridRef = useRef<THREE.GridHelper>(null)
     const [gridSpacing, setGridSpacing] = useState(1) // in meters
@@ -42,11 +42,15 @@ export function VisualGrid() {
 
     useFrame((state) => {
         const now = state.clock.getElapsedTime()
-        // Update every 200ms
+        // Update every 200ms (or skip visible cells during animation for performance)
         if (now - lastUpdate.current > 0.2) {
             const zPx = camera.position.z
             setCameraZoomLevel(zPx)
-            setCameraZ(zPx) // Track for font scaling
+
+            // Skip expensive font/cell calculations during animation
+            if (!isCameraAnimating) {
+                setCameraZ(zPx)
+            }
 
             // Convert to meters for logic checks
             const heightM = (zPx / DEFAULT_PPI) * 0.0254

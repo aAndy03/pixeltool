@@ -22,13 +22,15 @@ export function ArtboardComponent({ data }: ArtboardProps) {
 
     // Track camera Z for font scaling
     const [cameraZ, setCameraZ] = useState(1000)
+    const { isCameraAnimating } = useUIStore()
 
     const { camera, size } = useThree()
 
-    // Update camera Z periodically
+    // Update camera Z periodically (skip during animation for performance)
     useFrame(() => {
+        if (isCameraAnimating) return // Skip during animation
         const z = camera.position.z
-        if (Math.abs(z - cameraZ) > 10) { // Only update if changed significantly
+        if (Math.abs(z - cameraZ) > 10) {
             setCameraZ(z)
         }
     })
