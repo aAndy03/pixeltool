@@ -26,6 +26,10 @@ interface UIState {
     activeGridSpacing: number // meters
     setGridSpacing: (spacing: number) => void
 
+    // Visual Guides
+    snapGuides: { x: number | null, y: number | null }
+    setSnapGuides: (guides: { x: number | null, y: number | null }) => void
+
     // Camera Animation
     isCameraAnimating: boolean
     setCameraAnimating: (isAnimating: boolean) => void
@@ -54,6 +58,9 @@ export const useUIStore = create<UIState>((set) => ({
     toggleSnap: () => set((state) => ({ isSnapEnabled: !state.isSnapEnabled })),
     activeGridSpacing: 0.1, // default 0.1m
     setGridSpacing: (spacing) => set({ activeGridSpacing: spacing }),
+
+    snapGuides: { x: null, y: null },
+    setSnapGuides: (guides) => set({ snapGuides: guides }),
 
     isCameraAnimating: false,
     setCameraAnimating: (isAnimating) => set({ isCameraAnimating: isAnimating }),

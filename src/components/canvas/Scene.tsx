@@ -7,6 +7,7 @@ import { toPx } from '@/lib/math/units'
 import { ArtboardComponent } from './artboard'
 import { CameraControls } from './camera-controls'
 import { VisualGrid } from './visual-grid'
+import { SnapGuidelines } from './snap-guidelines'
 import { useArtboardStore } from '@/lib/store/artboard-store'
 import { useProjectStore } from '@/lib/store/project-store'
 
@@ -48,6 +49,7 @@ export function Scene() {
 
                 {/* Grid */}
                 <VisualGrid />
+                <SnapGuidelines />
 
                 {artboards.map(artboard => (
                     <ArtboardComponent key={artboard.id} data={artboard} />

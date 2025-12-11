@@ -8,6 +8,7 @@ import { useUIStore } from '@/lib/store/ui-store'
 import { fromPx, DisplayUnit, DEFAULT_PPI } from '@/lib/math/units'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGesture } from '@use-gesture/react'
+import { SnapEngine } from '@/lib/math/snap-engine'
 
 interface ArtboardProps {
     data: Artboard
@@ -111,38 +112,60 @@ export function ArtboardComponent({ data }: ArtboardProps) {
     // sort_order 0 is bottom.
     const zOffset = (sort_order || 0) * 0.1
 
+    const { isSnapEnabled, activeGridSpacing, setSnapGuides } = useUIStore()
+
     const bind = useGesture({
-        onDrag: ({ delta: [dx, dy], event, memo = [x, y] }) => {
+        onDrag: ({ movement: [mx, my], first, last, event, memo }) => {
             event.stopPropagation()
 
+            if (first) {
+                memo = [x, y]
+            }
+
             // Calculate scale based on camera zoom/position
-            const distance = camera.position.z // Assuming looking at Z=0
+            const distance = camera.position.z
             const vFov = (camera as THREE.PerspectiveCamera).fov * Math.PI / 180
             const planeHeightAtDist = 2 * Math.tan(vFov / 2) * distance
             const scaleFactor = planeHeightAtDist / size.height
 
             // Invert Y because screen Y is down, World Y is up
-            const changeX = dx * scaleFactor
-            const changeY = -dy * scaleFactor
+            // Note: movement is cumulative pixels from start
+            const changeX = mx * scaleFactor
+            const changeY = -my * scaleFactor
 
-            // Snapping Logic
-            const { isSnapEnabled, activeGridSpacing } = useUIStore.getState()
+            const [initialX, initialY] = memo
 
             // Check modifier (Alt key disables snap temporarily)
             const isAltPressed = event.altKey
+            const toSnap = isSnapEnabled && !isAltPressed
 
-            let finalX = x + changeX
-            let finalY = y + changeY
+            // Pixel to Snap Unit conversion
+            // activeGridSpacing is in METERS.
+            // But our X/Y coordinates are in PIXELS (at 96 DPI usually, or whatever the world scale is).
+            // We need to know what "1 unit" of grid is in World Pixels.
+            // toPx(meters, 'm', 96)
+            const gridSpacingPx = (activeGridSpacing / 0.0254) * DEFAULT_PPI
 
-            if (isSnapEnabled && !isAltPressed) {
-                const snapPx = (activeGridSpacing / 0.0254) * 96
-                finalX = Math.round(finalX / snapPx) * snapPx
-                finalY = Math.round(finalY / snapPx) * snapPx
+            const snapResult = SnapEngine.calculateSnap(
+                { x: initialX, y: initialY },
+                { x: changeX, y: changeY },
+                gridSpacingPx,
+                toSnap
+            )
+
+            // Update guides
+            if (last) {
+                setSnapGuides({ x: null, y: null })
+            } else {
+                setSnapGuides({
+                    x: snapResult.guides.x ?? null,
+                    y: snapResult.guides.y ?? null
+                })
             }
 
             update(id, {
-                x: finalX,
-                y: finalY
+                x: snapResult.x,
+                y: snapResult.y
             })
 
             return memo

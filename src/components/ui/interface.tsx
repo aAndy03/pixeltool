@@ -61,7 +61,7 @@ export function Interface({ user }: InterfaceProps) {
                     {currentProject ? (
                         <span className="px-2 py-0.5 text-xs border border-white/20 rounded-full text-white/50">{currentProject.name}</span>
                     ) : (
-                        <span className="px-2 py-0.5 text-xs border border-white/20 rounded-full text-white/50">ALPHA</span>
+                        <span className="px-2 py-0.5 text-xs border border-white/20 rounded-full text-white/50">2025.A.10alpha</span>
                     )}
 
                     <div className="h-6 w-px bg-white/10 mx-2" />
