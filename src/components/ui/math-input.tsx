@@ -17,7 +17,9 @@ export function MathInput({ value, onChange, decimals = 2, className, ...props }
     // Sync from prop when not focused
     useEffect(() => {
         if (!isFocused) {
-            setStrValue(Number(value).toFixed(decimals).replace(/\.?0+$/, '')) // Trim trailing zeros
+            // Fix: Use parseFloat to standard formatting to remove insigificant zeros (e.g. 300.00 -> 300)
+            // without trimming significant integer zeros (e.g. 300 -> 3)
+            setStrValue(parseFloat(Number(value).toFixed(decimals)).toString())
         }
     }, [value, decimals, isFocused])
 
@@ -28,29 +30,32 @@ export function MathInput({ value, onChange, decimals = 2, className, ...props }
         }
 
         try {
-            // Safe evaluation: allow only numbers and basic operators
+            // Safe evaluation: allow numbers, basic operators, and %
             // 1. Validate characters
-            if (!/^[0-9\.\+\-\*\/\(\)\s]+$/.test(strValue)) {
+            if (!/^[0-9\.\+\-\*\/\(\)\s%]+$/.test(strValue)) {
                 // Illegal chars, revert
-                setStrValue(Number(value).toFixed(decimals))
+                setStrValue(parseFloat(Number(value).toFixed(decimals)).toString())
                 return
             }
 
-            // 2. Evaluate
+            // 2. Handle percentages (e.g. 50% -> 0.5, 100+50% -> 100 + 0.5... context matters but simple /100 replace is start)
+            // We'll replace N% with (N/100)
+            const parsedStr = strValue.replace(/([0-9\.]+)(%)/g, '($1/100)')
+
+            // 3. Evaluate
             // eslint-disable-next-line no-new-func
-            const result = new Function('return ' + strValue)()
+            const result = new Function('return ' + parsedStr)()
 
             if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
                 onChange(result)
-                // Update display immediately (optional, or wait for useEffect)
-                setStrValue(Number(result).toFixed(decimals).replace(/\.?0+$/, ''))
+                setStrValue(parseFloat(Number(result).toFixed(decimals)).toString())
             } else {
                 // Reset on NaN
-                setStrValue(Number(value).toFixed(decimals))
+                setStrValue(parseFloat(Number(value).toFixed(decimals)).toString())
             }
         } catch (e) {
             // Parse error, reset
-            setStrValue(Number(value).toFixed(decimals))
+            setStrValue(parseFloat(Number(value).toFixed(decimals)).toString())
         }
     }
 

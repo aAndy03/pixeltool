@@ -9,11 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Smartphone, Monitor, Type } from "lucide-react"
+import { Smartphone, Monitor, Type, Lock, Unlock, Link } from "lucide-react"
 import { fromPx, toPx, DisplayUnit, DEFAULT_PPI, formatAspectRatio } from '@/lib/math/units'
 
 export function PropertiesPanel() {
     const { artboards, selectedArtboardIds, update } = useArtboardStore()
+    const [isRatioLocked, setIsRatioLocked] = useState(false)
+    const [scaleFactor, setScaleFactor] = useState(100) // Percentage
 
     // We only show panel if exactly one artboard is selected for now
     if (selectedArtboardIds.length !== 1) {
@@ -46,7 +48,34 @@ export function PropertiesPanel() {
 
     const handleDimensionChange = (field: 'width' | 'height', valueInUnit: number) => {
         const valuePx = toPx(valueInUnit, displayUnit, DEFAULT_PPI)
-        handleUpdate(field, valuePx)
+
+        if (isRatioLocked) {
+            const ratio = artboard.width / artboard.height
+            if (field === 'width') {
+                const newHeight = valuePx / ratio
+                update(selectedId, { width: valuePx, height: newHeight })
+            } else {
+                const newWidth = valuePx * ratio
+                update(selectedId, { width: newWidth, height: valuePx })
+            }
+        } else {
+            handleUpdate(field, valuePx)
+        }
+    }
+
+    const handleScaleChange = (percentage: number) => {
+        const factor = percentage / 100
+        if (factor <= 0) return
+
+        update(selectedId, {
+            width: artboard.width * factor,
+            height: artboard.height * factor
+        })
+        // Reset scale input visually to 100% or keep? 
+        // User guideline: "it should be kept in calculations until scale by is removed"
+        // This suggests sticking to 100 makes sense as a base, or we treat it as an operation.
+        // Let's reset to 100 after operation for clarity, as "Scale By" implies action.
+        setScaleFactor(100)
     }
 
     const handleUnitChange = (newUnit: DisplayUnit) => {
@@ -148,9 +177,20 @@ export function PropertiesPanel() {
 
                     {/* Ratio & Orientation */}
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-white/40">
-                            Ratio: {formatAspectRatio(artboard.width, artboard.height)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-white/40 hover:text-white"
+                                onClick={() => setIsRatioLocked(!isRatioLocked)}
+                                title={isRatioLocked ? "Unlock Aspect Ratio" : "Lock Aspect Ratio"}
+                            >
+                                {isRatioLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                            </Button>
+                            <span className="text-[10px] text-white/40">
+                                {formatAspectRatio(artboard.width, artboard.height)}
+                            </span>
+                        </div>
                         <Button
                             variant="ghost"
                             size="sm"
@@ -161,6 +201,23 @@ export function PropertiesPanel() {
                             Rotate
                         </Button>
                     </div>
+
+                    {/* Scale By Input (Only when locked) */}
+                    {isRatioLocked && (
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                            <div className="flex flex-col justify-center">
+                                <Label className="text-[10px] text-white/40">Scale By (%)</Label>
+                                <span className="text-[9px] text-white/20">Enter % to scale</span>
+                            </div>
+                            <MathInput
+                                value={scaleFactor}
+                                decimals={1}
+                                onChange={handleScaleChange}
+                                className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                placeholder="100%"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <div className="h-px bg-white/10" />
