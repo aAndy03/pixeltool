@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useRef, useMemo } from 'react'
+import React, { useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
-import { Text, Line } from '@react-three/drei'
+import { Text } from '@react-three/drei'
 import { Artboard, useArtboardStore } from '@/lib/store/artboard-store'
 import { useUIStore } from '@/lib/store/ui-store'
 import { fromPx, DisplayUnit, DEFAULT_PPI } from '@/lib/math/units'
-import { useThree } from '@react-three/fiber'
+import { useThree, useFrame } from '@react-three/fiber'
 import { useGesture } from '@use-gesture/react'
 
 interface ArtboardProps {
@@ -20,6 +20,19 @@ export function ArtboardComponent({ data }: ArtboardProps) {
     const opacity = settings?.opacity ?? 1.0
     const displayUnit: DisplayUnit = settings?.physicalUnit || 'mm'
 
+    // Track camera Z for font scaling
+    const [cameraZ, setCameraZ] = useState(1000)
+
+    const { camera, size } = useThree()
+
+    // Update camera Z periodically
+    useFrame(() => {
+        const z = camera.position.z
+        if (Math.abs(z - cameraZ) > 10) { // Only update if changed significantly
+            setCameraZ(z)
+        }
+    })
+
     // Format dimension for display using artboard's stored unit
     const formatDimension = (valuePx: number) => {
         const val = fromPx(valuePx, displayUnit, DEFAULT_PPI)
@@ -28,10 +41,69 @@ export function ArtboardComponent({ data }: ArtboardProps) {
         return `${val.toFixed(decimals)} ${displayUnit}`
     }
 
+    // Calculate font sizes and positions based on camera Z and artboard constraints
+    const textLayout = useMemo(() => {
+        const perspCam = camera as THREE.PerspectiveCamera
+        const vFov = perspCam.fov * Math.PI / 180
+        const visibleHeight = 2 * Math.tan(vFov / 2) * cameraZ
+        const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+        const worldUnitsPerPixel = visibleHeight / screenHeight
+
+        // Target screen sizes in pixels
+        const targetFontScreenSize = 12
+
+        // Padding between elements
+        const paddingFactor = 0.3 // 30% of font size as padding
+
+        // Calculate ideal font size based on camera distance
+        let fontSize = targetFontScreenSize * worldUnitsPerPixel
+
+        // Estimate text widths (approximate: 0.6 * fontSize per character)
+        const charWidth = 0.6
+        const nameLength = name.length
+        const dimText = formatDimension(width)
+        const dimLength = dimText.length
+
+        // Total width needed: name + padding + dimension label
+        const padding = fontSize * paddingFactor
+        const estimatedNameWidth = nameLength * fontSize * charWidth
+        const estimatedDimWidth = dimLength * fontSize * charWidth
+        const totalNeeded = estimatedNameWidth + padding + estimatedDimWidth
+
+        // Available width on top edge
+        const availableWidth = width
+
+        // Scale down if exceeds available width
+        if (totalNeeded > availableWidth) {
+            const scale = availableWidth / totalNeeded
+            fontSize = fontSize * scale * 0.9 // 10% margin
+        }
+
+        // Minimum readable size
+        const minFontSize = 3 * worldUnitsPerPixel
+        fontSize = Math.max(fontSize, minFontSize)
+
+        // Maximum size constraint
+        const maxFontSize = Math.min(width, height) * 0.15
+        fontSize = Math.min(fontSize, maxFontSize)
+
+        // Recalculate positions with final font size
+        const finalPadding = fontSize * paddingFactor
+        const offset = fontSize * 0.8 // Vertical offset above artboard
+
+        return {
+            fontSize,
+            padding: finalPadding,
+            offset,
+            // Position width label at right edge of artboard
+            widthLabelX: width / 2,
+            // Name position stays at left
+            nameX: -width / 2
+        }
+    }, [cameraZ, camera, width, height, name])
+
     const { selectedArtboardIds, selectArtboard, update } = useArtboardStore()
     const isSelected = selectedArtboardIds.includes(id)
-
-    const { camera, size, viewport } = useThree()
 
     // Z-index logic: Tiny offset to prevent z-fighting but maintain order
     // sort_order 0 is bottom.
@@ -42,19 +114,6 @@ export function ArtboardComponent({ data }: ArtboardProps) {
             event.stopPropagation()
 
             // Calculate scale based on camera zoom/position
-            // Simple approximation for Planar view (Perspective Camera locked to XY)
-            // Visible Height at current target distance?
-            // Actually, we can use the delta projected?
-            // Or simpler: PerspectiveCamera factor.
-
-            // For now, let's look at the delta returned by useGesture on a canvas object.
-            // It relies on raycasting if we bind to the object? 
-            // "If you attach the gesture to a component..."
-            // "drag state contains ... delta property"
-            // With r3f, the delta is in 3D units if we use the right configuration?
-            // Default useGesture on DOM returns screen pixels.
-
-            // Let's manually project screen delta to world delta.
             const distance = camera.position.z // Assuming looking at Z=0
             const vFov = (camera as THREE.PerspectiveCamera).fov * Math.PI / 180
             const planeHeightAtDist = 2 * Math.tan(vFov / 2) * distance
@@ -64,31 +123,17 @@ export function ArtboardComponent({ data }: ArtboardProps) {
             const changeX = dx * scaleFactor
             const changeY = -dy * scaleFactor
 
-            // Update Store (Optimistic)
-            // We throttle or just update? Zustand is fast.
-            // For smoother frame rate, better to use temp state and update store on DragEnd,
-            // but for "Tool" we want to see property panel update maybe?
-            // User requirement: "move the artboards ... and keep their position"
-
-            // To avoid store spam, we might want to use a ref for the visual object and update store on 'onDragEnd'.
-            // BUT, if we have a properties panel, it won't sync.
-            // Let's try direct update first. If slow, optimize.
-
             // Snapping Logic
             const { isSnapEnabled, activeGridSpacing } = useUIStore.getState()
 
             // Check modifier (Alt key disables snap temporarily)
-            // Note: event is the original event. React-use-gesture passes it.
             const isAltPressed = event.altKey
 
             let finalX = x + changeX
             let finalY = y + changeY
 
             if (isSnapEnabled && !isAltPressed) {
-                // PPI=96 default implies Artboards are in px but concept is 96px = 1in = 0.0254m
-                // We need to convert Grid Spacing (m) to Px
                 const snapPx = (activeGridSpacing / 0.0254) * 96
-
                 finalX = Math.round(finalX / snapPx) * snapPx
                 finalY = Math.round(finalY / snapPx) * snapPx
             }
@@ -102,8 +147,6 @@ export function ArtboardComponent({ data }: ArtboardProps) {
         },
         onClick: ({ event }) => {
             event.stopPropagation()
-            // Toggle selection if Ctrl/Shift? User request said "Select tool... simple click".
-            // Typically Click = Select Only This (Deselect others). Shift+Click = Add.
             const isMulti = event.shiftKey || event.ctrlKey
             selectArtboard(id, isMulti)
         }
@@ -115,7 +158,6 @@ export function ArtboardComponent({ data }: ArtboardProps) {
         <group
             position={[x, y, zOffset]}
             {...bind()}
-            // Hover cursor
             onPointerOver={() => document.body.style.cursor = 'move'}
             onPointerOut={() => document.body.style.cursor = 'auto'}
         >
@@ -128,7 +170,7 @@ export function ArtboardComponent({ data }: ArtboardProps) {
                     transparent={true}
                     opacity={opacity}
                     polygonOffset
-                    polygonOffsetFactor={-1 * (sort_order || 0)} // Help visual sorting if needed
+                    polygonOffsetFactor={-1 * (sort_order || 0)}
                 />
             </mesh>
 
@@ -137,10 +179,6 @@ export function ArtboardComponent({ data }: ArtboardProps) {
                 <lineSegments position={[0, 0, 0.5]}>
                     <edgesGeometry args={[borderGeometry]} />
                     <lineBasicMaterial color="#0066ff" linewidth={4} />
-                    {/* Note: linewidth only works in some renderers/browsers, often 1. 
-                        For thick lines, use Meshline or just a slightly larger plane behind? 
-                        Or just a distinct color. Blue is standard. 
-                    */}
                 </lineSegments>
             )}
 
@@ -152,29 +190,36 @@ export function ArtboardComponent({ data }: ArtboardProps) {
                 </lineSegments>
             )}
 
-            {/* Label (Name) - slightly above top-left */}
+            {/* Layer Name - top left */}
             <Text
-                position={[-width / 2, height / 2 + 10, 0]}
+                position={[textLayout.nameX, height / 2 + textLayout.offset, 0]}
                 anchorX="left"
-                fontSize={12}
+                anchorY="bottom"
+                fontSize={textLayout.fontSize}
                 color={isSelected ? "#0066ff" : "white"}
             >
                 {name}
             </Text>
 
-            {/* Dimensions Labels - Show only if selected or hovered? Or always? Always for now. */}
+            {/* Width Label - top right */}
             <Text
-                position={[0, height / 2 + 5, 0]}
-                fontSize={10}
+                position={[textLayout.widthLabelX, height / 2 + textLayout.offset, 0]}
+                anchorX="right"
+                anchorY="bottom"
+                fontSize={textLayout.fontSize}
                 color={isSelected ? "#0066ff" : "#888888"}
             >
                 {formatDimension(width)}
             </Text>
+
+            {/* Height Label - left side, same font size as width */}
             <Text
-                position={[-width / 2 - 5, 0, 0]}
+                position={[-width / 2 - textLayout.offset, 0, 0]}
                 rotation={[0, 0, Math.PI / 2]}
-                fontSize={10}
+                fontSize={textLayout.fontSize}
                 color={isSelected ? "#0066ff" : "#888888"}
+                anchorX="center"
+                anchorY="bottom"
             >
                 {formatDimension(height)}
             </Text>

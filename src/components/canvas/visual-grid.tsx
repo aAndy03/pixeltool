@@ -4,7 +4,7 @@ import React, { useRef, useMemo, useState } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import { useUIStore } from '@/lib/store/ui-store'
-import { toPx, fromPx, formatPx, DEFAULT_PPI } from '@/lib/math/units'
+import { toPx, fromPx, DEFAULT_PPI } from '@/lib/math/units'
 import * as THREE from 'three'
 
 // Thresholds for swapping grid scales
@@ -20,21 +20,33 @@ const ZOOM_LEVELS = [
     { height: 5000, spacing: 100 }    // < 5000m -> 100m grid
 ]
 
+// Maximum number of labels to render at once for performance
+const MAX_LABELS = 100
+
+interface VisibleCell {
+    key: string
+    x: number
+    y: number
+}
+
 export function VisualGrid() {
     const { isGridEnabled, isAxisEnabled, showGridDimensions, setCameraZoomLevel, gridUnit } = useUIStore()
-    const { camera } = useThree()
+    const { camera, size } = useThree()
     const gridRef = useRef<THREE.GridHelper>(null)
     const [gridSpacing, setGridSpacing] = useState(1) // in meters
+    const [visibleCells, setVisibleCells] = useState<VisibleCell[]>([])
+    const [cameraZ, setCameraZ] = useState(1000) // Track camera Z for font scaling
 
     // Update Throttler
     const lastUpdate = useRef(0)
 
     useFrame((state) => {
         const now = state.clock.getElapsedTime()
-        // Update Zoom Level every 200ms
+        // Update every 200ms
         if (now - lastUpdate.current > 0.2) {
             const zPx = camera.position.z
             setCameraZoomLevel(zPx)
+            setCameraZ(zPx) // Track for font scaling
 
             // Convert to meters for logic checks
             const heightM = (zPx / DEFAULT_PPI) * 0.0254
@@ -49,8 +61,63 @@ export function VisualGrid() {
             }
             if (newSpacing !== gridSpacing) {
                 setGridSpacing(newSpacing)
-                // Also update store for global access (Snapping)
                 useUIStore.getState().setGridSpacing(newSpacing)
+            }
+
+            // Calculate visible cells for dimension labels
+            if (showGridDimensions && isGridEnabled) {
+                const spacingPx = toPx(newSpacing, 'm', DEFAULT_PPI)
+
+                // Calculate visible area in world coords
+                const perspCam = camera as THREE.PerspectiveCamera
+                const vFov = perspCam.fov * Math.PI / 180
+                const visibleHeight = 2 * Math.tan(vFov / 2) * zPx
+                const visibleWidth = visibleHeight * (size.width / size.height)
+
+                const camX = camera.position.x
+                const camY = camera.position.y
+
+                // Calculate the grid cell range that's visible
+                const minX = camX - visibleWidth / 2
+                const maxX = camX + visibleWidth / 2
+                const minY = camY - visibleHeight / 2
+                const maxY = camY + visibleHeight / 2
+
+                // Snap to grid cell boundaries
+                const startCellX = Math.floor(minX / spacingPx)
+                const endCellX = Math.ceil(maxX / spacingPx)
+                const startCellY = Math.floor(minY / spacingPx)
+                const endCellY = Math.ceil(maxY / spacingPx)
+
+                const cells: VisibleCell[] = []
+
+                // Calculate total cells that would be visible
+                const totalCellsX = endCellX - startCellX + 1
+                const totalCellsY = endCellY - startCellY + 1
+                const totalCells = totalCellsX * totalCellsY
+
+                // If too many cells, sample evenly across the viewport
+                const skipX = totalCells > MAX_LABELS ? Math.ceil(totalCellsX / Math.sqrt(MAX_LABELS)) : 1
+                const skipY = totalCells > MAX_LABELS ? Math.ceil(totalCellsY / Math.sqrt(MAX_LABELS)) : 1
+
+                // Generate cells across entire visible range with sampling if needed
+                for (let cellX = startCellX; cellX <= endCellX; cellX += skipX) {
+                    for (let cellY = startCellY; cellY <= endCellY; cellY += skipY) {
+                        // Cell center position
+                        const centerX = (cellX + 0.5) * spacingPx
+                        const centerY = (cellY + 0.5) * spacingPx
+
+                        cells.push({
+                            key: `${cellX},${cellY}`,
+                            x: centerX,
+                            y: centerY
+                        })
+                    }
+                }
+
+                setVisibleCells(cells)
+            } else {
+                setVisibleCells([])
             }
 
             lastUpdate.current = now
@@ -64,20 +131,27 @@ export function VisualGrid() {
         return Math.round(gridSizePx / spacingPx)
     }, [gridSizePx, spacingPx])
 
-    // Generate Labels
-    // We only create labels near the center area?
-    // Doing huge number of Text instances is heavy.
-    // For now, let's create a few labels along the axis +X and +Y relative to 0.
-    const numberOfLabels = 20
-    const labels = useMemo(() => {
-        if (!showGridDimensions) return []
-        const arr = []
-        for (let i = 1; i <= numberOfLabels; i++) {
-            arr.push(i * gridSpacing)
-        }
-        return arr
-    }, [gridSpacing, showGridDimensions])
+    // Format the cell dimension label
+    const cellLabel = useMemo(() => {
+        const valInTargetUnit = fromPx(spacingPx, gridUnit as any, DEFAULT_PPI)
+        const decimals = gridUnit === 'm' || gridUnit === 'ft' ? 2 : gridUnit === 'cm' ? 1 : 0
+        return `${valInTargetUnit.toFixed(decimals)} ${gridUnit}`
+    }, [spacingPx, gridUnit])
 
+    // Calculate font size based on camera Z for consistent screen-space size
+    // As camera moves further (higher Z), text needs to be larger in world space
+    const fontSize = useMemo(() => {
+        // Target ~12px apparent size on screen
+        // Font size in world coords = desired screen size * (camera Z / some reference)
+        const targetScreenSize = 14 // desired apparent size in pixels
+        const perspCam = camera as THREE.PerspectiveCamera
+        const vFov = perspCam.fov * Math.PI / 180
+        // Visible height at camera Z
+        const visibleHeight = 2 * Math.tan(vFov / 2) * cameraZ
+        // Scale factor: how many world units per screen pixel
+        const worldUnitsPerPixel = visibleHeight / (typeof window !== 'undefined' ? window.innerHeight : 800)
+        return targetScreenSize * worldUnitsPerPixel
+    }, [cameraZ, camera])
 
     if (!isGridEnabled && !isAxisEnabled) return null
 
@@ -96,51 +170,23 @@ export function VisualGrid() {
 
             {isAxisEnabled && (
                 <axesHelper args={[toPx(1, 'm', DEFAULT_PPI)]} position={[0, 0, 1]} />
-                // Moved slightly up relative to grid to show
             )}
 
-            {isGridEnabled && showGridDimensions && labels.map(valM => {
-                const px = toPx(valM, 'm', DEFAULT_PPI)
-                // We format the label based on the specific grid spacing unit for cleanliness
-                // If spacing is 0.1m, label as "10 cm" "20 cm"
-                // Or just use our formatPx but force the spacing unit.
-
-                // We want to use the USER selected unit for display if possible, 
-                // OR adapt to the Scale.
-                // Request said "based on the unit selected in the zoom".
-
-                const valInTargetUnit = fromPx(toPx(valM, 'm', DEFAULT_PPI), gridUnit as any)
-                const labelText = `${valInTargetUnit.toFixed(gridUnit === 'm' || gridUnit === 'ft' ? 1 : 0)} ${gridUnit}`
-
-                return (
-                    <group key={valM}>
-                        {/* X Axis Labels */}
-                        <Text
-                            position={[px, 0, 1]}
-                            fontSize={12}
-                            color="#888888"
-                            anchorX="center"
-                            anchorY="top"
-                        >
-                            {labelText}
-                        </Text>
-
-                        {/* Y Axis Labels (Mapped to -Y in 3D usually because screen Y is down? 
-                            In Scene setup, +Y is UP. +X is Right.
-                            We render 2D UI style.
-                        */}
-                        <Text
-                            position={[0, px, 1]}
-                            fontSize={12}
-                            color="#888888"
-                            anchorX="right"
-                            anchorY="middle"
-                        >
-                            {labelText}
-                        </Text>
-                    </group>
-                )
-            })}
+            {/* Virtualized Cell Center Labels */}
+            {isGridEnabled && showGridDimensions && visibleCells.map(cell => (
+                <Text
+                    key={cell.key}
+                    position={[cell.x, cell.y, 1]}
+                    fontSize={fontSize}
+                    color="#666666"
+                    anchorX="center"
+                    anchorY="middle"
+                    fillOpacity={0.7}
+                >
+                    {cellLabel}
+                </Text>
+            ))}
         </group>
     )
 }
+
