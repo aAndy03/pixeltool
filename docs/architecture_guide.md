@@ -62,6 +62,29 @@ When adding a new entity (e.g., `Layers`, `Shapes`):
 -   **Supabase**: Backend Database & Auth.
 
 
+## Unified Layer Ordering (Version 2025.A.11+)
+
+Cross-type layer ordering (artboards, references, images, etc.) uses a central `layer_order` table.
+
+### Schema
+-   **`layer_order`** (Supabase) / **`layerOrder`** (Dexie)
+    -   `id`, `project_id`, `layer_id`, `layer_type`, `sort_order`
+
+### Flow
+1.  **Create layer** → Entry added to both layer table AND `layer_order`
+2.  **Delete layer** → Entry removed from both layer table AND `layer_order`
+3.  **Reorder** → Layer Panel calls `reorderLayers()` which swaps `sort_order` in `layer_order`
+4.  **Display** → Layer Panel reads from `layer_order` to determine unified display order
+
+### Adding New Layer Types
+1.  Create table (e.g., `images`) and store (`image-store.ts`)
+2.  In create function: also add `layer_order` entry with `layer_type: 'image'`
+3.  In remove function: also delete from `layer_order`
+4.  Layer Panel automatically includes new type via `layer_order`
+
+### Legacy Support
+Layers without `layer_order` entries appear at the end, sorted by their individual `sort_order`.
+
 
 For devs:
 Previous features added before 2025.A.4alpha might not have been updated to use this architecture. 

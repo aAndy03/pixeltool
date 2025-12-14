@@ -5,17 +5,27 @@ import { ReferenceLayer } from '@/lib/store/reference-store'
 
 export interface SyncStatus {
     id: string
-    entityType: 'artboard' | 'project' | 'reference'
+    entityType: 'artboard' | 'project' | 'reference' | 'layer_order'
     entityId: string
     action: 'create' | 'update' | 'delete'
     data?: any
     timestamp: number
 }
 
+// Unified layer ordering across all layer types
+export interface LayerOrder {
+    id: string
+    project_id: string
+    layer_id: string      // ID of the layer (artboard, reference, etc.)
+    layer_type: string    // 'artboard', 'reference', 'image', etc.
+    sort_order: number
+}
+
 export class PixelDB extends Dexie {
     artboards!: Table<Artboard & { project_id: string; updated_at?: string }, string>
     projects!: Table<Project, string>
     references!: Table<ReferenceLayer & { project_id: string; updated_at?: string }, string>
+    layerOrder!: Table<LayerOrder, string>
     pendingSync!: Table<SyncStatus, string>
 
     constructor() {
@@ -35,7 +45,13 @@ export class PixelDB extends Dexie {
         this.version(3).stores({
             references: 'id, project_id, [project_id+sort_order]'
         })
+
+        // Add Version 4 for Unified Layer Order
+        this.version(4).stores({
+            layerOrder: 'id, project_id, layer_id, [project_id+sort_order]'
+        })
     }
 }
 
 export const db = new PixelDB()
+

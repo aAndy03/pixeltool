@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 import { bulkUpsertArtboards, bulkDeleteArtboards, getArtboards } from '@/app/actions/artboards'
+import { bulkUpsertReferences, bulkDeleteReferences, getReferences } from '@/app/actions/references'
+import { bulkUpsertLayerOrder, bulkDeleteLayerOrder, getLayerOrder } from '@/app/actions/layer-order'
 import { bulkUpsertProjects, bulkDeleteProjects } from '@/app/actions/projects'
 import { useEffect } from 'react'
 
@@ -51,6 +53,10 @@ export class SyncEngine {
             // Buckets
             const artboardsToUpsert: any[] = []
             const artboardsToDelete: string[] = []
+            const referencesToUpsert: any[] = []
+            const referencesToDelete: string[] = []
+            const layerOrderToUpsert: any[] = []
+            const layerOrderToDelete: string[] = []
             const projectsToUpsert: any[] = []
             const projectsToDelete: string[] = []
 
@@ -66,6 +72,24 @@ export class SyncEngine {
                             id: data.id,
                             settings: data.settings || {}
                         })
+                    }
+                } else if (task.entityType === 'reference') {
+                    if (task.action === 'delete') {
+                        referencesToDelete.push(id)
+                    } else {
+                        const data = await db.references.get(id)
+                        if (data) referencesToUpsert.push({
+                            ...data,
+                            id: data.id,
+                            settings: data.settings || {}
+                        })
+                    }
+                } else if (task.entityType === 'layer_order') {
+                    if (task.action === 'delete') {
+                        layerOrderToDelete.push(id)
+                    } else {
+                        const data = await db.layerOrder.get(id)
+                        if (data) layerOrderToUpsert.push(data)
                     }
                 } else if (task.entityType === 'project') {
                     if (task.action === 'delete') {
@@ -86,6 +110,14 @@ export class SyncEngine {
             // Artboards
             if (artboardsToUpsert.length > 0) await bulkUpsertArtboards(artboardsToUpsert)
             if (artboardsToDelete.length > 0) await bulkDeleteArtboards(artboardsToDelete)
+
+            // References
+            if (referencesToUpsert.length > 0) await bulkUpsertReferences(referencesToUpsert)
+            if (referencesToDelete.length > 0) await bulkDeleteReferences(referencesToDelete)
+
+            // Layer Order
+            if (layerOrderToUpsert.length > 0) await bulkUpsertLayerOrder(layerOrderToUpsert)
+            if (layerOrderToDelete.length > 0) await bulkDeleteLayerOrder(layerOrderToDelete)
 
             // Projects
             if (projectsToUpsert.length > 0) await bulkUpsertProjects(projectsToUpsert)
@@ -109,18 +141,51 @@ export class SyncEngine {
     }
 
     async pullChanges(projectId: string) {
-        const { success, data } = await getArtboards(projectId)
+        // Pull Artboards
+        const artboardResult = await getArtboards(projectId)
 
-        if (success && data && data.length > 0) {
+        if (artboardResult.success && artboardResult.data && artboardResult.data.length > 0) {
             const pending = await db.pendingSync
                 .where('entityType').equals('artboard')
                 .toArray()
 
             const dirtyIds = new Set(pending.map(p => p.entityId))
-            const safeUpdates = (data as any[]).filter(serverItem => !dirtyIds.has(serverItem.id))
+            const safeUpdates = (artboardResult.data as any[]).filter(serverItem => !dirtyIds.has(serverItem.id))
 
             if (safeUpdates.length > 0) {
                 await db.artboards.bulkPut(safeUpdates)
+            }
+        }
+
+        // Pull References
+        const refResult = await getReferences(projectId)
+
+        if (refResult.success && refResult.data && refResult.data.length > 0) {
+            const pending = await db.pendingSync
+                .where('entityType').equals('reference')
+                .toArray()
+
+            const dirtyIds = new Set(pending.map(p => p.entityId))
+            const safeUpdates = (refResult.data as any[]).filter(serverItem => !dirtyIds.has(serverItem.id))
+
+            if (safeUpdates.length > 0) {
+                await db.references.bulkPut(safeUpdates)
+            }
+        }
+
+        // Pull Layer Order
+        const orderResult = await getLayerOrder(projectId)
+
+        if (orderResult.success && orderResult.data && orderResult.data.length > 0) {
+            const pending = await db.pendingSync
+                .where('entityType').equals('layer_order')
+                .toArray()
+
+            const dirtyIds = new Set(pending.map(p => p.entityId))
+            const safeUpdates = (orderResult.data as any[]).filter(serverItem => !dirtyIds.has(serverItem.id))
+
+            if (safeUpdates.length > 0) {
+                await db.layerOrder.bulkPut(safeUpdates)
             }
         }
     }
@@ -144,3 +209,4 @@ export function useSync(projectId: string) {
         return () => clearInterval(interval)
     }, [projectId])
 }
+

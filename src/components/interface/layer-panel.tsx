@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useArtboardStore, Artboard } from '@/lib/store/artboard-store'
 import { useReferenceStore, ReferenceLayer } from '@/lib/store/reference-store'
+import { useLayerOrderStore } from '@/lib/store/layer-order-store'
 import { Layers, GripVertical, Eye, Trash2, Locate, Square, Box } from 'lucide-react'
 import {
     DndContext,
@@ -188,6 +189,8 @@ export function LayerPanel() {
         reorderReferences
     } = useReferenceStore()
 
+    const { layerOrder, reorderLayers } = useLayerOrderStore()
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
@@ -195,27 +198,68 @@ export function LayerPanel() {
         })
     )
 
-    // Combine artboards and references into a unified sorted list
+    // Combine artboards and references into a unified sorted list using layer_order
     const allLayers = useMemo<LayerItem[]>(() => {
-        const artboardLayers: LayerItem[] = artboards.map(a => ({
-            id: a.id,
-            name: a.name,
-            type: 'artboard' as const,
-            sort_order: a.sort_order,
-            data: a
-        }))
+        // Create lookup maps for artboards and references
+        const artboardMap = new Map(artboards.map(a => [a.id, a]))
+        const referenceMap = new Map(references.map(r => [r.id, r]))
 
-        const referenceLayers: LayerItem[] = references.map(r => ({
-            id: r.id,
-            name: r.name,
-            type: 'reference' as const,
-            sort_order: r.sort_order,
-            data: r
-        }))
+        // Build layers from layer_order (unified ordering)
+        const orderedLayers: LayerItem[] = []
 
-        // Sort by sort_order descending (highest first)
-        return [...artboardLayers, ...referenceLayers].sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
-    }, [artboards, references])
+        // Sort layer_order by sort_order descending
+        const sortedOrder = [...layerOrder].sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
+
+        for (const orderEntry of sortedOrder) {
+            if (orderEntry.layer_type === 'artboard') {
+                const artboard = artboardMap.get(orderEntry.layer_id)
+                if (artboard) {
+                    orderedLayers.push({
+                        id: artboard.id,
+                        name: artboard.name,
+                        type: 'artboard',
+                        sort_order: orderEntry.sort_order,
+                        data: artboard
+                    })
+                    artboardMap.delete(orderEntry.layer_id) // Mark as processed
+                }
+            } else if (orderEntry.layer_type === 'reference') {
+                const reference = referenceMap.get(orderEntry.layer_id)
+                if (reference) {
+                    orderedLayers.push({
+                        id: reference.id,
+                        name: reference.name,
+                        type: 'reference',
+                        sort_order: orderEntry.sort_order,
+                        data: reference
+                    })
+                    referenceMap.delete(orderEntry.layer_id) // Mark as processed
+                }
+            }
+        }
+
+        // Add any layers not in layer_order (legacy data) at the end
+        for (const artboard of artboardMap.values()) {
+            orderedLayers.push({
+                id: artboard.id,
+                name: artboard.name,
+                type: 'artboard',
+                sort_order: artboard.sort_order || 0,
+                data: artboard
+            })
+        }
+        for (const reference of referenceMap.values()) {
+            orderedLayers.push({
+                id: reference.id,
+                name: reference.name,
+                type: 'reference',
+                sort_order: reference.sort_order || 0,
+                data: reference
+            })
+        }
+
+        return orderedLayers
+    }, [artboards, references, layerOrder])
 
     const totalCount = artboards.length + references.length
 
@@ -223,18 +267,15 @@ export function LayerPanel() {
         const { active, over } = event
 
         if (over && active.id !== over.id) {
-            // Determine type of dragged item
+            // Use unified layer_order for cross-type reordering
             const activeLayer = allLayers.find(l => l.id === active.id)
             const overLayer = allLayers.find(l => l.id === over.id)
 
             if (activeLayer && overLayer) {
-                // Only reorder within same type for now
-                if (activeLayer.type === overLayer.type) {
-                    if (activeLayer.type === 'artboard') {
-                        reorderArtboards(active.id as string, over.id as string)
-                    } else {
-                        reorderReferences(active.id as string, over.id as string)
-                    }
+                // Get project_id from the layer data
+                const projectId = (activeLayer.data as any).project_id
+                if (projectId) {
+                    reorderLayers(projectId, active.id as string, over.id as string)
                 }
             }
         }

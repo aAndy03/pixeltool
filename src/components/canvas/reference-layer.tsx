@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import * as THREE from 'three'
 import { Text } from '@react-three/drei'
 import { ReferenceLayer, useReferenceStore } from '@/lib/store/reference-store'
@@ -34,7 +34,6 @@ export function ReferenceLayerComponent({ data }: ReferenceLayerProps) {
     const { camera, size } = useThree()
 
     // SVG Loading and processing
-    const [svgGeometry, setSvgGeometry] = useState<THREE.ShapeGeometry | null>(null)
     const [svgGroup, setSvgGroup] = useState<THREE.Group | null>(null)
 
     useEffect(() => {
@@ -92,6 +91,12 @@ export function ReferenceLayerComponent({ data }: ReferenceLayerProps) {
             }
         )
     }, [svgPath, width, height, opacity])
+
+    // Memoize the cloned SVG group to prevent re-cloning on every render (which breaks drag)
+    const clonedSvgGroup = useMemo(() => {
+        if (!svgGroup) return null
+        return svgGroup.clone()
+    }, [svgGroup])
 
     // Update camera Z periodically
     useFrame(() => {
@@ -232,8 +237,8 @@ export function ReferenceLayerComponent({ data }: ReferenceLayerProps) {
             onPointerOut={() => document.body.style.cursor = 'auto'}
         >
             {/* SVG Content or Fallback Rectangle */}
-            {svgGroup ? (
-                <primitive object={svgGroup.clone()} />
+            {clonedSvgGroup ? (
+                <primitive object={clonedSvgGroup} />
             ) : (
                 <mesh>
                     <planeGeometry args={[width, height]} />

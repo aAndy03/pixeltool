@@ -5,6 +5,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { toPx } from '@/lib/math/units'
 import { useArtboardStore } from '@/lib/store/artboard-store'
+import { useReferenceStore } from '@/lib/store/reference-store'
 import { useProjectStore } from '@/lib/store/project-store'
 import { useUIStore } from '@/lib/store/ui-store'
 import * as THREE from 'three'
@@ -55,6 +56,13 @@ export function CameraControls() {
     })
 
     const { artboards, focusArtboardId, setFocus, zoomToArtboardId, setZoomTo } = useArtboardStore()
+    const {
+        references,
+        focusReferenceId,
+        setFocus: setReferenceFocus,
+        zoomToReferenceId,
+        setZoomTo: setReferenceZoomTo
+    } = useReferenceStore()
     const { saveCameraState } = useProjectStore()
     const { setCameraAnimating } = useUIStore()
 
@@ -116,7 +124,7 @@ export function CameraControls() {
         return vec.x >= -0.9 && vec.x <= 0.9 && vec.y >= -0.9 && vec.y <= 0.9
     }
 
-    // Handle Smart Focus (Pan only if needed)
+    // Handle Smart Focus for Artboards (Pan only if needed)
     useEffect(() => {
         if (!focusArtboardId || !controlsRef.current) return
 
@@ -143,7 +151,34 @@ export function CameraControls() {
         setFocus(null)
     }, [focusArtboardId, artboards, setFocus, camera])
 
-    // Handle Zoom-To-Fit (Pan + Zoom) with Animation
+    // Handle Smart Focus for References (Pan only if needed)
+    useEffect(() => {
+        if (!focusReferenceId || !controlsRef.current) return
+
+        const targetRef = references.find(r => r.id === focusReferenceId)
+        if (targetRef) {
+            if (!isPointInView(targetRef.x, targetRef.y)) {
+                const controls = controlsRef.current
+                const currentDist = controls.object.position.z
+
+                // Start animated transition
+                setCameraAnimating(true)
+                animationRef.current = {
+                    isAnimating: true,
+                    startTime: performance.now(),
+                    startX: controls.target.x,
+                    startY: controls.target.y,
+                    startZ: currentDist,
+                    targetX: targetRef.x,
+                    targetY: targetRef.y,
+                    targetZ: currentDist
+                }
+            }
+        }
+        setReferenceFocus(null)
+    }, [focusReferenceId, references, setReferenceFocus, camera])
+
+    // Handle Zoom-To-Fit for Artboards (Pan + Zoom) with Animation
     useEffect(() => {
         if (!zoomToArtboardId || !controlsRef.current) return
 
@@ -175,6 +210,39 @@ export function CameraControls() {
         }
         setZoomTo(null)
     }, [zoomToArtboardId, artboards, setZoomTo, camera, size])
+
+    // Handle Zoom-To-Fit for References (Pan + Zoom) with Animation
+    useEffect(() => {
+        if (!zoomToReferenceId || !controlsRef.current) return
+
+        const targetRef = references.find(r => r.id === zoomToReferenceId)
+        if (targetRef) {
+            const controls = controlsRef.current
+
+            const vFov = (camera as THREE.PerspectiveCamera).fov * Math.PI / 180
+            const margin = 1.2
+
+            const heightDist = (targetRef.height * margin) / (2 * Math.tan(vFov / 2))
+            const aspect = size.width / size.height
+            const widthDist = (targetRef.width * margin) / (2 * Math.tan(vFov / 2) * aspect)
+
+            const targetDist = Math.max(heightDist, widthDist)
+
+            // Start animated transition
+            setCameraAnimating(true)
+            animationRef.current = {
+                isAnimating: true,
+                startTime: performance.now(),
+                startX: controls.target.x,
+                startY: controls.target.y,
+                startZ: controls.object.position.z,
+                targetX: targetRef.x,
+                targetY: targetRef.y,
+                targetZ: targetDist
+            }
+        }
+        setReferenceZoomTo(null)
+    }, [zoomToReferenceId, references, setReferenceZoomTo, camera, size])
 
 
     useEffect(() => {
@@ -231,4 +299,5 @@ export function CameraControls() {
         />
     )
 }
+
 

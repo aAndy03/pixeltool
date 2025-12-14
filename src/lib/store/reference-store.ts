@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
-import { db } from '@/lib/db'
+import { db, LayerOrder } from '@/lib/db'
 import { syncEngine } from '@/lib/sync/sync-engine'
 import { DisplayUnit, toPx, DEFAULT_PPI } from '@/lib/math/units'
 
@@ -142,11 +142,28 @@ export const useReferenceStore = create<ReferenceState>((set, get) => ({
         // Local Persist
         await db.references.put(newReference)
 
-        // Queue Sync
+        // Queue Sync for reference
         await db.pendingSync.put({
             id: uuidv4(),
             entityType: 'reference',
             entityId: newId,
+            action: 'create',
+            timestamp: Date.now()
+        })
+
+        // Also create layer_order entry for unified ordering
+        const layerOrderEntry: LayerOrder = {
+            id: uuidv4(),
+            project_id: projectId,
+            layer_id: newId,
+            layer_type: 'reference',
+            sort_order: newSortOrder
+        }
+        await db.layerOrder.put(layerOrderEntry)
+        await db.pendingSync.put({
+            id: uuidv4(),
+            entityType: 'layer_order',
+            entityId: layerOrderEntry.id,
             action: 'create',
             timestamp: Date.now()
         })
@@ -191,7 +208,7 @@ export const useReferenceStore = create<ReferenceState>((set, get) => ({
         // Local Persist
         await db.references.delete(id)
 
-        // Queue Sync
+        // Queue Sync for reference
         await db.pendingSync.put({
             id: uuidv4(),
             entityType: 'reference',
@@ -199,6 +216,19 @@ export const useReferenceStore = create<ReferenceState>((set, get) => ({
             action: 'delete',
             timestamp: Date.now()
         })
+
+        // Also delete from layer_order
+        const layerOrderEntry = await db.layerOrder.where('layer_id').equals(id).first()
+        if (layerOrderEntry) {
+            await db.layerOrder.delete(layerOrderEntry.id)
+            await db.pendingSync.put({
+                id: uuidv4(),
+                entityType: 'layer_order',
+                entityId: layerOrderEntry.id,
+                action: 'delete',
+                timestamp: Date.now()
+            })
+        }
 
         syncEngine.schedulePush()
     },

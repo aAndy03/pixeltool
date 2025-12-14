@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
-import { db } from '@/lib/db'
+import { db, LayerOrder } from '@/lib/db'
 import { syncEngine } from '@/lib/sync/sync-engine'
 
 export interface Artboard {
@@ -99,11 +99,28 @@ export const useArtboardStore = create<ArtboardState>((set, get) => ({
         // Local Persist
         await db.artboards.put(newArtboard)
 
-        // Queue Sync
+        // Queue Sync for artboard
         await db.pendingSync.put({
             id: uuidv4(),
             entityType: 'artboard',
             entityId: newId,
+            action: 'create',
+            timestamp: Date.now()
+        })
+
+        // Also create layer_order entry for unified ordering
+        const layerOrderEntry: LayerOrder = {
+            id: uuidv4(),
+            project_id: projectId,
+            layer_id: newId,
+            layer_type: 'artboard',
+            sort_order: newSortOrder
+        }
+        await db.layerOrder.put(layerOrderEntry)
+        await db.pendingSync.put({
+            id: uuidv4(),
+            entityType: 'layer_order',
+            entityId: layerOrderEntry.id,
             action: 'create',
             timestamp: Date.now()
         })
@@ -148,7 +165,7 @@ export const useArtboardStore = create<ArtboardState>((set, get) => ({
         // Local Persist
         await db.artboards.delete(id)
 
-        // Queue Sync
+        // Queue Sync for artboard
         await db.pendingSync.put({
             id: uuidv4(),
             entityType: 'artboard',
@@ -156,6 +173,19 @@ export const useArtboardStore = create<ArtboardState>((set, get) => ({
             action: 'delete',
             timestamp: Date.now()
         })
+
+        // Also delete from layer_order
+        const layerOrderEntry = await db.layerOrder.where('layer_id').equals(id).first()
+        if (layerOrderEntry) {
+            await db.layerOrder.delete(layerOrderEntry.id)
+            await db.pendingSync.put({
+                id: uuidv4(),
+                entityType: 'layer_order',
+                entityId: layerOrderEntry.id,
+                action: 'delete',
+                timestamp: Date.now()
+            })
+        }
 
         syncEngine.schedulePush()
     },
