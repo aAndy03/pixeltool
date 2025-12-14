@@ -1,0 +1,32 @@
+[
+    {
+        "id": "template_id",
+        "name": "Template Reference",
+        "category": "Category Name",
+        "views": {
+            "top": {
+                "width": 100,
+                "height": 100,
+                "unit": "mm",
+                "svg_path": "/assets/references/template_top.svg"
+            },
+            "side": {
+                "width": 100,
+                "height": 100,
+                "unit": "mm",
+                "svg_path": "/assets/references/template_side.svg"
+            },
+            "bottom": {
+                "width": 100,
+                "height": 100,
+                "unit": "mm",
+                "svg_path": "/assets/references/template_bottom.svg"
+            }
+        },
+        "fallback": {
+            "view": "side",
+            "shape": "rectangle",
+            "description": "Fallback shape when SVG is missing"
+        }
+    }
+]

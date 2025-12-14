@@ -1,0 +1,32 @@
+[
+    {
+        "id": "Ikea Cup",
+        "name": "Ikea Cup",
+        "category": "Mugs",
+        "views": {
+            "top": {
+                "width": 8.26,
+                "height": 11.3,
+                "unit": "cm",
+                "svg_path": "/assets/references/Ikea Cup_TopView.svg"
+            },
+            "side": {
+                "width": 11.43,
+                "height": 9.53,
+                "unit": "cm",
+                "svg_path": "/assets/references/Ikea Cup_SideView.svg"
+            },
+            "bottom": {
+                "width": "none",
+                "height": "none",
+                "unit": "cm",
+                "svg_path": "none"
+            }
+        },
+        "fallback": {
+            "view": "side",
+            "shape": "rectangle",
+            "description": "Fallback shape when SVG is missing"
+        }
+    }
+]

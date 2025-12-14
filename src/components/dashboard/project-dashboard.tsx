@@ -10,11 +10,13 @@ import { useProjectStore } from '@/lib/store/project-store'
 import { CreateProjectPopover } from './create-project-popover'
 import { formatDistanceToNow } from 'date-fns'
 import { useArtboardStore } from '@/lib/store/artboard-store'
+import { useReferenceStore } from '@/lib/store/reference-store'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 export function ProjectDashboard() {
     const { projects, loadProjects, setCurrentProject, deleteProject, isLoading, currentProject } = useProjectStore()
     const { loadArtboards } = useArtboardStore()
+    const { loadReferences } = useReferenceStore()
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -31,14 +33,18 @@ export function ProjectDashboard() {
             if (target) {
                 setCurrentProject(target)
                 loadArtboards(target.id)
+                loadReferences(target.id)
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams, projects, loadArtboards])
+    }, [searchParams, projects, loadArtboards, loadReferences])
 
     const handleOpenProject = async (project: any) => {
         setCurrentProject(project)
-        await loadArtboards(project.id)
+        await Promise.all([
+            loadArtboards(project.id),
+            loadReferences(project.id)
+        ])
         router.push(`/?project=${project.id}`)
     }
 

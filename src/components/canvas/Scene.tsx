@@ -5,10 +5,12 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { useMemo, useEffect } from 'react'
 import { toPx } from '@/lib/math/units'
 import { ArtboardComponent } from './artboard'
+import { ReferenceLayerComponent } from './reference-layer'
 import { CameraControls } from './camera-controls'
 import { VisualGrid } from './visual-grid'
 import { SnapGuidelines } from './snap-guidelines'
 import { useArtboardStore } from '@/lib/store/artboard-store'
+import { useReferenceStore } from '@/lib/store/reference-store'
 import { useProjectStore } from '@/lib/store/project-store'
 
 // Constants
@@ -18,17 +20,20 @@ const PPI = 96 // Default standard
 
 export function Scene() {
     const { artboards, selectArtboard } = useArtboardStore()
+    const { references, selectReference } = useReferenceStore()
     const { currentProject } = useProjectStore()
+
+    // Deselect both artboards and references when clicking on empty space
+    const handlePointerMissed = (e: any) => {
+        if (e.type === 'click' || e.type === 'contextmenu') {
+            selectArtboard(null)
+            selectReference(null)
+        }
+    }
 
     return (
         <div className="absolute inset-0 z-0 bg-neutral-900">
-            <Canvas
-                onPointerMissed={(e) => {
-                    if (e.type === 'click' || e.type === 'contextmenu') {
-                        selectArtboard(null)
-                    }
-                }}
-            >
+            <Canvas onPointerMissed={handlePointerMissed}>
                 {/* Initial Camera Position from Project Settings or Default */}
                 <PerspectiveCamera
                     makeDefault
@@ -51,11 +56,18 @@ export function Scene() {
                 <VisualGrid />
                 <SnapGuidelines />
 
+                {/* Artboards */}
                 {artboards.map(artboard => (
                     <ArtboardComponent key={artboard.id} data={artboard} />
+                ))}
+
+                {/* Reference Layers */}
+                {references.map(reference => (
+                    <ReferenceLayerComponent key={reference.id} data={reference} />
                 ))}
 
             </Canvas>
         </div>
     )
 }
+

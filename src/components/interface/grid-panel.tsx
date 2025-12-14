@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { ReferencePopover } from './reference-popover'
 
 const UNITS = ['mm', 'cm', 'm', 'in', 'ft']
 
@@ -31,6 +32,9 @@ export function GridPanel() {
 
     return (
         <div className="flex items-center gap-2 pointer-events-auto">
+            {/* Reference Tool */}
+            <ReferencePopover />
+
             {/* Grid Settings Popover */}
             <Popover>
                 <PopoverTrigger asChild>
