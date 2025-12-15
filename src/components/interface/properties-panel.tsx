@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useArtboardStore } from "@/lib/store/artboard-store"
 import { useReferenceStore } from "@/lib/store/reference-store"
+import { useBackgroundImageStore } from "@/lib/store/background-image-store"
+import { useProjectStore } from "@/lib/store/project-store"
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { MathInput } from "@/components/ui/math-input"
@@ -11,18 +13,241 @@ import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Smartphone, Monitor, Type, Lock, Unlock, Link, Box, Ruler } from "lucide-react"
+import { Smartphone, Monitor, Type, Lock, Unlock, Link, Box, Ruler, Image, Trash2, ArrowRightLeft, Maximize } from "lucide-react"
 import { fromPx, toPx, DisplayUnit, DEFAULT_PPI, formatAspectRatio } from '@/lib/math/units'
 
 export function PropertiesPanel() {
     const { artboards, selectedArtboardIds, update: updateArtboard } = useArtboardStore()
     const { references, selectedReferenceIds, update: updateReference } = useReferenceStore()
+    const {
+        backgroundImages,
+        selectedBackgroundImageIds,
+        create: createBackgroundImage,
+        update: updateBackgroundImage,
+        remove: removeBackgroundImage
+    } = useBackgroundImageStore()
+    const { currentProject } = useProjectStore()
+
+    // ALL useState hooks MUST be at the top before any conditional returns
     const [isRatioLocked, setIsRatioLocked] = useState(false)
     const [scaleFactor, setScaleFactor] = useState(100)
+    const [imageUrl, setImageUrl] = useState('')
+    const [isAddingImage, setIsAddingImage] = useState(false)
+    const [imageError, setImageError] = useState<string | null>(null)
 
     // Determine what is selected
     const hasArtboardSelected = selectedArtboardIds.length === 1
     const hasReferenceSelected = selectedReferenceIds.length === 1
+    const hasBackgroundImageSelected = selectedBackgroundImageIds.length === 1
+
+    // === BACKGROUND IMAGE PROPERTIES ===
+    if (hasBackgroundImageSelected) {
+        const selectedId = selectedBackgroundImageIds[0]
+        const bgImage = backgroundImages.find(i => i.id === selectedId)
+
+        if (!bgImage) return null
+
+        const artboard = artboards.find(a => a.id === bgImage.artboard_id)
+        const displayUnit: DisplayUnit = (bgImage.settings?.physicalUnit as DisplayUnit) || 'mm'
+        const displayWidth = fromPx(bgImage.width, displayUnit, DEFAULT_PPI)
+        const displayHeight = fromPx(bgImage.height, displayUnit, DEFAULT_PPI)
+        const opacity = bgImage.settings?.opacity ?? 1
+        const linkDimensions = bgImage.settings?.linkDimensions ?? true
+
+        const handleUpdate = (field: string, value: any) => {
+            updateBackgroundImage(selectedId, { [field]: value })
+        }
+
+        const handleSettingUpdate = (field: string, value: any) => {
+            const currentSettings = bgImage.settings || {}
+            updateBackgroundImage(selectedId, {
+                settings: { ...currentSettings, [field]: value }
+            })
+        }
+
+        const handleDimensionChange = (field: 'width' | 'height', valueInUnit: number) => {
+            const valuePx = toPx(valueInUnit, displayUnit, DEFAULT_PPI)
+
+            if (linkDimensions) {
+                const ratio = bgImage.natural_width / bgImage.natural_height
+                if (field === 'width') {
+                    updateBackgroundImage(selectedId, { width: valuePx, height: valuePx / ratio })
+                } else {
+                    updateBackgroundImage(selectedId, { width: valuePx * ratio, height: valuePx })
+                }
+            } else {
+                handleUpdate(field, valuePx)
+            }
+        }
+
+        const fitImageToArtboard = () => {
+            if (!artboard) return
+            updateBackgroundImage(selectedId, {
+                width: artboard.width,
+                height: artboard.height,
+                x: 0,
+                y: 0
+            })
+        }
+
+        const fitArtboardToImage = () => {
+            if (!artboard) return
+            updateArtboard(artboard.id, {
+                width: bgImage.width,
+                height: bgImage.height
+            })
+        }
+
+        return (
+            <div
+                className="w-64 bg-black/40 border border-blue-500/20 rounded-lg flex flex-col pointer-events-auto shadow-2xl h-full overflow-hidden"
+                style={{ backdropFilter: 'blur(20px) saturate(150%)', WebkitBackdropFilter: 'blur(20px) saturate(150%)' }}
+                onPointerDown={(e) => e.stopPropagation()}
+            >
+                <CardHeader className="p-3 border-b border-blue-500/20 flex flex-row items-center space-y-0">
+                    <CardTitle className="text-xs font-semibold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                        <Image className="w-4 h-4 text-blue-500" />
+                        Background Image
+                    </CardTitle>
+                </CardHeader>
+
+                <CardContent className="p-4 space-y-6 overflow-y-auto">
+
+                    {/* Image URL */}
+                    <div className="space-y-2">
+                        <Label className="text-xs text-white/50">Image URL</Label>
+                        <div className="text-[10px] text-blue-300 bg-blue-500/10 px-2 py-1 rounded truncate" title={bgImage.image_url}>
+                            {bgImage.image_url.substring(0, 40)}...
+                        </div>
+                    </div>
+
+                    {/* Original Dimensions */}
+                    <div className="space-y-2">
+                        <Label className="text-xs text-white/50">Original Size</Label>
+                        <div className="text-xs text-white/40">
+                            {bgImage.natural_width} × {bgImage.natural_height} px
+                        </div>
+                    </div>
+
+                    {/* Dimensions */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <Label className="text-xs text-white/50 font-bold">Dimensions</Label>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-white/40 hover:text-white"
+                                onClick={() => handleSettingUpdate('linkDimensions', !linkDimensions)}
+                                title={linkDimensions ? "Unlink Dimensions" : "Link Dimensions"}
+                            >
+                                {linkDimensions ? <Link className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                            </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label className="text-[10px] text-white/40">W ({displayUnit})</Label>
+                                <MathInput
+                                    value={displayWidth}
+                                    onChange={(val) => handleDimensionChange('width', val)}
+                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] text-white/40">H ({displayUnit})</Label>
+                                <MathInput
+                                    value={displayHeight}
+                                    onChange={(val) => handleDimensionChange('height', val)}
+                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Position */}
+                    <div className="space-y-3">
+                        <Label className="text-xs text-white/50 font-bold">Position (offset)</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label className="text-[10px] text-white/40">X</Label>
+                                <MathInput
+                                    value={bgImage.x}
+                                    decimals={0}
+                                    onChange={(val) => handleUpdate('x', val)}
+                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[10px] text-white/40">Y</Label>
+                                <MathInput
+                                    value={bgImage.y}
+                                    decimals={0}
+                                    onChange={(val) => handleUpdate('y', val)}
+                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="h-px bg-white/10" />
+
+                    {/* Quick Resize Actions */}
+                    <div className="space-y-3">
+                        <Label className="text-xs text-white/50 font-bold">Quick Actions</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[10px] bg-blue-500/10 border-blue-500/20 text-blue-300 hover:bg-blue-500/20"
+                                onClick={fitImageToArtboard}
+                            >
+                                <Maximize className="w-3 h-3 mr-1" />
+                                Fit to Artboard
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[10px] bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                                onClick={fitArtboardToImage}
+                            >
+                                <ArrowRightLeft className="w-3 h-3 mr-1" />
+                                Fit Artboard
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Opacity */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs text-white/70">Opacity</Label>
+                            <span className="text-xs text-white/50">
+                                {Math.round(opacity * 100)}%
+                            </span>
+                        </div>
+                        <Slider
+                            value={[opacity * 100]}
+                            max={100}
+                            min={10}
+                            step={5}
+                            onValueChange={(val: number[]) => handleSettingUpdate('opacity', val[0] / 100)}
+                            className="py-2"
+                        />
+                    </div>
+
+                    {/* Delete */}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-7 text-xs bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
+                        onClick={() => removeBackgroundImage(selectedId)}
+                    >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Remove Background Image
+                    </Button>
+
+                </CardContent>
+            </div>
+        )
+    }
 
     // Show nothing if nothing is selected or multiple items selected
     if (!hasArtboardSelected && !hasReferenceSelected) {
@@ -177,6 +402,9 @@ export function PropertiesPanel() {
 
     if (!artboard) return null
 
+    // Get background images for this artboard
+    const artboardBackgroundImages = backgroundImages.filter(i => i.artboard_id === selectedId)
+
     const handleUpdate = (field: string, value: any) => {
         updateArtboard(selectedId, { [field]: value })
     }
@@ -233,6 +461,61 @@ export function PropertiesPanel() {
             height: width
         })
     }
+
+    const handleAddBackgroundImage = async () => {
+        if (!imageUrl || !currentProject) return
+
+        setIsAddingImage(true)
+        setImageError(null)
+
+        try {
+            // Load image to get natural dimensions
+            // Note: We don't set crossOrigin because many image servers block CORS
+            // The texture loader in Three.js will handle this separately
+            const img = new window.Image()
+
+            // Try loading - some URLs will fail but we can still store the URL
+            // The actual texture loading in Three.js may succeed where this fails
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve()
+                img.onerror = () => reject(new Error('Could not load image preview'))
+                img.src = imageUrl
+                // Timeout after 5 seconds
+                setTimeout(() => reject(new Error('Image load timeout')), 5000)
+            })
+
+            // Create background image matching artboard size
+            await createBackgroundImage(currentProject.id, selectedId, {
+                imageUrl: imageUrl,
+                naturalWidth: img.naturalWidth || artboard.width,
+                naturalHeight: img.naturalHeight || artboard.height,
+                width: artboard.width,
+                height: artboard.height
+            })
+
+            setImageUrl('')
+        } catch (error) {
+            // If preview load fails, still try to add - Three.js texture loader might succeed
+            console.warn('Preview load failed, attempting to add anyway:', error)
+            try {
+                // Use artboard dimensions as fallback
+                await createBackgroundImage(currentProject.id, selectedId, {
+                    imageUrl: imageUrl,
+                    naturalWidth: artboard.width,
+                    naturalHeight: artboard.height,
+                    width: artboard.width,
+                    height: artboard.height
+                })
+                setImageUrl('')
+            } catch (innerError) {
+                setImageError('Failed to add image. Check the URL.')
+                console.error('Failed to add image:', innerError)
+            }
+        } finally {
+            setIsAddingImage(false)
+        }
+    }
+
 
     return (
         <div
@@ -423,6 +706,57 @@ export function PropertiesPanel() {
                             className="py-2"
                         />
                     </div>
+                </div>
+
+                <div className="h-px bg-white/10" />
+
+                {/* Background Image Section */}
+                <div className="space-y-3">
+                    <Label className="text-xs text-white/50 font-bold flex items-center gap-2">
+                        <Image className="w-3 h-3" />
+                        Background Image
+                    </Label>
+
+                    {artboardBackgroundImages.length > 0 ? (
+                        <div className="space-y-2">
+                            {artboardBackgroundImages.map(bgImg => (
+                                <div key={bgImg.id} className="flex items-center gap-2 bg-blue-500/10 p-2 rounded text-xs">
+                                    <Image className="w-4 h-4 text-blue-400" />
+                                    <span className="flex-1 truncate text-blue-300">Image</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-red-400 hover:text-red-300"
+                                        onClick={() => removeBackgroundImage(bgImg.id)}
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <Input
+                                placeholder="Paste image URL..."
+                                value={imageUrl}
+                                onChange={(e) => { setImageUrl(e.target.value); setImageError(null); }}
+                                className="bg-black/50 border-white/10 h-7 text-xs text-white"
+                            />
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full h-7 text-xs bg-blue-500/10 border-blue-500/20 text-blue-300 hover:bg-blue-500/20"
+                                onClick={handleAddBackgroundImage}
+                                disabled={!imageUrl || isAddingImage}
+                            >
+                                <Image className="w-3 h-3 mr-1" />
+                                {isAddingImage ? 'Adding...' : 'Add Background Image'}
+                            </Button>
+                            {imageError && (
+                                <p className="text-[10px] text-red-400">{imageError}</p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
             </CardContent>

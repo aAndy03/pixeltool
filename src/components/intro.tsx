@@ -30,7 +30,7 @@ export function Intro() {
                         transition={{ delay: 0.8 }}
                         className="text-xl md:text-2xl text-muted-foreground font-light tracking-[0.5em] uppercase"
                     >
-                        2025.A.10alpha
+                        2025.A.12alpha
                     </motion.p>
                 </motion.div>
 
@@ -65,6 +65,12 @@ export function Intro() {
                     <div className="grid md:grid-cols-2 gap-12 text-lg text-white/60 leading-relaxed">
                         <p>
                             I built this app because I need spatial context while I design in Affinity.
+                        </p>
+                        <p>
+                            The tool that gives you context for your digital projects.
+                        </p>
+                        <p>
+                            Could be used as convertor between the supported metrics.
                         </p>
                     </div>
                 </section>

@@ -5,7 +5,7 @@ import { ReferenceLayer } from '@/lib/store/reference-store'
 
 export interface SyncStatus {
     id: string
-    entityType: 'artboard' | 'project' | 'reference' | 'layer_order'
+    entityType: 'artboard' | 'project' | 'reference' | 'layer_order' | 'background_image'
     entityId: string
     action: 'create' | 'update' | 'delete'
     data?: any
@@ -21,11 +21,33 @@ export interface LayerOrder {
     sort_order: number
 }
 
+// Background image for artboards (clipping mask)
+export interface BackgroundImage {
+    id: string
+    project_id: string
+    artboard_id: string
+    image_url: string
+    natural_width: number   // Original image dimensions
+    natural_height: number
+    x: number              // Position offset within artboard
+    y: number
+    width: number          // Current rendered dimensions
+    height: number
+    settings?: {
+        opacity?: number
+        linkDimensions?: boolean  // Link W/H together
+        physicalUnit?: string
+        dpi?: number
+    }
+    sort_order: number
+}
+
 export class PixelDB extends Dexie {
     artboards!: Table<Artboard & { project_id: string; updated_at?: string }, string>
     projects!: Table<Project, string>
     references!: Table<ReferenceLayer & { project_id: string; updated_at?: string }, string>
     layerOrder!: Table<LayerOrder, string>
+    backgroundImages!: Table<BackgroundImage, string>
     pendingSync!: Table<SyncStatus, string>
 
     constructor() {
@@ -49,6 +71,11 @@ export class PixelDB extends Dexie {
         // Add Version 4 for Unified Layer Order
         this.version(4).stores({
             layerOrder: 'id, project_id, layer_id, [project_id+sort_order]'
+        })
+
+        // Add Version 5 for Background Images
+        this.version(5).stores({
+            backgroundImages: 'id, project_id, artboard_id, [project_id+sort_order]'
         })
     }
 }

@@ -4,6 +4,7 @@ import React, { useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { Text } from '@react-three/drei'
 import { Artboard, useArtboardStore } from '@/lib/store/artboard-store'
+import { useBackgroundImageStore } from '@/lib/store/background-image-store'
 import { useUIStore } from '@/lib/store/ui-store'
 import { fromPx, DisplayUnit, DEFAULT_PPI } from '@/lib/math/units'
 import { useThree, useFrame } from '@react-three/fiber'
@@ -24,6 +25,10 @@ export function ArtboardComponent({ data }: ArtboardProps) {
     // Track camera Z for font scaling
     const [cameraZ, setCameraZ] = useState(1000)
     const { isCameraAnimating } = useUIStore()
+
+    // Check if this artboard has a background image
+    const { backgroundImages } = useBackgroundImageStore()
+    const hasBackgroundImage = backgroundImages.some(img => img.artboard_id === id)
 
     const { camera, size } = useThree()
 
@@ -186,18 +191,25 @@ export function ArtboardComponent({ data }: ArtboardProps) {
             onPointerOver={() => document.body.style.cursor = 'move'}
             onPointerOut={() => document.body.style.cursor = 'auto'}
         >
-            {/* Main Artboard Plane */}
-            <mesh>
+            {/* Main Artboard Plane - Writes to stencil buffer for background image clipping */}
+            <mesh renderOrder={sort_order || 0}>
                 <planeGeometry args={[width, height]} />
                 <meshStandardMaterial
                     color={bgColor}
                     roughness={0.5}
                     transparent={true}
-                    opacity={opacity}
+                    opacity={hasBackgroundImage ? 0 : opacity}
                     polygonOffset
                     polygonOffsetFactor={-1 * (sort_order || 0)}
+                    stencilWrite={true}
+                    stencilRef={(sort_order || 0) + 1}
+                    stencilFunc={THREE.AlwaysStencilFunc}
+                    stencilFail={THREE.ReplaceStencilOp}
+                    stencilZFail={THREE.ReplaceStencilOp}
+                    stencilZPass={THREE.ReplaceStencilOp}
                 />
             </mesh>
+
 
             {/* Selection Outline - Blue if selected */}
             {isSelected && (

@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useArtboardStore, Artboard } from '@/lib/store/artboard-store'
 import { useReferenceStore, ReferenceLayer } from '@/lib/store/reference-store'
+import { useBackgroundImageStore } from '@/lib/store/background-image-store'
 import { useLayerOrderStore } from '@/lib/store/layer-order-store'
-import { Layers, GripVertical, Eye, Trash2, Locate, Square, Box } from 'lucide-react'
+import { BackgroundImage } from '@/lib/db'
+import { Layers, GripVertical, Eye, Trash2, Locate, Square, Box, Image, ChevronRight, ChevronDown } from 'lucide-react'
 import {
     DndContext,
     closestCenter,
@@ -40,9 +42,65 @@ interface SortableLayerProps {
     onDelete: (id: string, type: 'artboard' | 'reference') => void
     onZoomTo: (id: string, type: 'artboard' | 'reference') => void
     onUpdateName: (id: string, name: string, type: 'artboard' | 'reference') => void
+    backgroundImages?: BackgroundImage[]
+    selectedBackgroundImageIds?: string[]
+    onSelectBackgroundImage?: (id: string) => void
+    onDeleteBackgroundImage?: (id: string) => void
 }
 
-function SortableLayer({ layer, isSelected, onSelect, onDelete, onZoomTo, onUpdateName }: SortableLayerProps) {
+// Nested background image item component
+function BackgroundImageItem({
+    image,
+    isSelected,
+    onSelect,
+    onDelete
+}: {
+    image: BackgroundImage
+    isSelected: boolean
+    onSelect: (id: string) => void
+    onDelete: (id: string) => void
+}) {
+    return (
+        <div
+            className={cn(
+                "group flex items-center gap-2 px-2 py-1.5 text-[11px] rounded mb-0.5 cursor-pointer transition-colors ml-6 border border-transparent",
+                isSelected
+                    ? "bg-blue-500/20 border-blue-500/30 text-white"
+                    : "text-white/50 hover:bg-white/5"
+            )}
+            onClick={(e) => {
+                e.stopPropagation()
+                onSelect(image.id)
+            }}
+        >
+            <Image className="w-3 h-3 text-blue-400 flex-shrink-0" />
+            <span className="flex-1 truncate text-blue-300">
+                Background Image
+            </span>
+            <div className={cn("flex items-center gap-1 opacity-0 group-hover:opacity-100", isSelected && "opacity-100")}>
+                <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(image.id); }}
+                    className="p-0.5 hover:bg-red-500/20 hover:text-red-400 rounded"
+                >
+                    <Trash2 className="w-2.5 h-2.5" />
+                </button>
+            </div>
+        </div>
+    )
+}
+
+function SortableLayer({
+    layer,
+    isSelected,
+    onSelect,
+    onDelete,
+    onZoomTo,
+    onUpdateName,
+    backgroundImages = [],
+    selectedBackgroundImageIds = [],
+    onSelectBackgroundImage,
+    onDeleteBackgroundImage
+}: SortableLayerProps) {
     const {
         attributes,
         listeners,
@@ -61,7 +119,10 @@ function SortableLayer({ layer, isSelected, onSelect, onDelete, onZoomTo, onUpda
     // Renaming State
     const [isEditing, setIsEditing] = useState(false)
     const [editName, setEditName] = useState(layer.name)
+    const [isExpanded, setIsExpanded] = useState(true)
     const inputRef = useRef<HTMLInputElement>(null)
+
+    const hasBackgroundImages = layer.type === 'artboard' && backgroundImages.length > 0
 
     useEffect(() => {
         if (isEditing && inputRef.current) {
@@ -95,73 +156,109 @@ function SortableLayer({ layer, isSelected, onSelect, onDelete, onZoomTo, onUpda
     const isReference = layer.type === 'reference'
 
     return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            className={cn(
-                "group flex items-center gap-2 px-2 py-2 text-xs rounded-md mb-1 cursor-pointer transition-colors border border-transparent",
-                isSelected
-                    ? isReference
-                        ? "bg-emerald-500/20 border-emerald-500/30 text-white"
-                        : "bg-white/10 border-white/10 text-white"
-                    : "text-white/60 hover:bg-white/5",
-                isDragging ? "opacity-50" : ""
-            )}
-            onClick={(e) => {
-                e.stopPropagation()
-                onSelect(layer.id, layer.type)
-            }}
-            onDoubleClick={(e) => {
-                e.stopPropagation()
-                setIsEditing(true)
-            }}
-        >
-            {/* Drag Handle */}
-            <div {...attributes} {...listeners} className="cursor-grab hover:text-white/80 p-0.5">
-                <GripVertical className="w-3 h-3 text-white/20" />
+        <div ref={setNodeRef} style={style}>
+            <div
+                className={cn(
+                    "group flex items-center gap-2 px-2 py-2 text-xs rounded-md mb-1 cursor-pointer transition-colors border border-transparent",
+                    isSelected
+                        ? isReference
+                            ? "bg-emerald-500/20 border-emerald-500/30 text-white"
+                            : "bg-white/10 border-white/10 text-white"
+                        : "text-white/60 hover:bg-white/5",
+                    isDragging ? "opacity-50" : ""
+                )}
+                onClick={(e) => {
+                    e.stopPropagation()
+                    onSelect(layer.id, layer.type)
+                }}
+                onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    setIsEditing(true)
+                }}
+            >
+                {/* Expand/Collapse for artboards with background images */}
+                {hasBackgroundImages ? (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                        className="p-0.5 hover:bg-white/10 rounded"
+                    >
+                        {isExpanded ? (
+                            <ChevronDown className="w-3 h-3 text-white/40" />
+                        ) : (
+                            <ChevronRight className="w-3 h-3 text-white/40" />
+                        )}
+                    </button>
+                ) : (
+                    /* Drag Handle */
+                    <div {...attributes} {...listeners} className="cursor-grab hover:text-white/80 p-0.5">
+                        <GripVertical className="w-3 h-3 text-white/20" />
+                    </div>
+                )}
+
+                {/* Type Icon */}
+                {isReference ? (
+                    <Box className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                ) : (
+                    <Square className="w-3 h-3 text-white/40 flex-shrink-0" />
+                )}
+
+                {/* Name or Input */}
+                {isEditing ? (
+                    <input
+                        ref={inputRef}
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={handleNameSubmit}
+                        onKeyDown={handleKeyDown}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 bg-black/50 border border-white/20 rounded px-1 outline-none text-white h-5 min-w-0"
+                    />
+                ) : (
+                    <span className={cn("flex-1 truncate select-none", isReference && "text-emerald-300")}>
+                        {layer.name}
+                    </span>
+                )}
+
+                {/* Background image count badge */}
+                {hasBackgroundImages && (
+                    <span className="text-[9px] bg-blue-500/30 text-blue-300 px-1.5 rounded">
+                        {backgroundImages.length}
+                    </span>
+                )}
+
+                {/* Actions */}
+                <div className={cn("flex items-center gap-1 opacity-0 group-hover:opacity-100", isSelected && !isEditing && "opacity-100")}>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onZoomTo(layer.id, layer.type); }}
+                        className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white"
+                        title="Fit to View"
+                    >
+                        <Locate className="w-3 h-3" />
+                    </button>
+
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(layer.id, layer.type); }}
+                        className="p-1 hover:bg-red-500/20 hover:text-red-400 rounded"
+                    >
+                        <Trash2 className="w-3 h-3" />
+                    </button>
+                </div>
             </div>
 
-            {/* Type Icon */}
-            {isReference ? (
-                <Box className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-            ) : (
-                <Square className="w-3 h-3 text-white/40 flex-shrink-0" />
+            {/* Nested Background Images */}
+            {hasBackgroundImages && isExpanded && (
+                <div className="ml-2 border-l border-white/10 pl-1">
+                    {backgroundImages.map(bgImage => (
+                        <BackgroundImageItem
+                            key={bgImage.id}
+                            image={bgImage}
+                            isSelected={selectedBackgroundImageIds.includes(bgImage.id)}
+                            onSelect={onSelectBackgroundImage || (() => { })}
+                            onDelete={onDeleteBackgroundImage || (() => { })}
+                        />
+                    ))}
+                </div>
             )}
-
-            {/* Name or Input */}
-            {isEditing ? (
-                <input
-                    ref={inputRef}
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onBlur={handleNameSubmit}
-                    onKeyDown={handleKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 bg-black/50 border border-white/20 rounded px-1 outline-none text-white h-5 min-w-0"
-                />
-            ) : (
-                <span className={cn("flex-1 truncate select-none", isReference && "text-emerald-300")}>
-                    {layer.name}
-                </span>
-            )}
-
-            {/* Actions */}
-            <div className={cn("flex items-center gap-1 opacity-0 group-hover:opacity-100", isSelected && !isEditing && "opacity-100")}>
-                <button
-                    onClick={(e) => { e.stopPropagation(); onZoomTo(layer.id, layer.type); }}
-                    className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white"
-                    title="Fit to View"
-                >
-                    <Locate className="w-3 h-3" />
-                </button>
-
-                <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(layer.id, layer.type); }}
-                    className="p-1 hover:bg-red-500/20 hover:text-red-400 rounded"
-                >
-                    <Trash2 className="w-3 h-3" />
-                </button>
-            </div>
         </div>
     )
 }
@@ -189,6 +286,13 @@ export function LayerPanel() {
         reorderReferences
     } = useReferenceStore()
 
+    const {
+        backgroundImages,
+        selectedBackgroundImageIds,
+        selectBackgroundImage,
+        remove: removeBackgroundImage
+    } = useBackgroundImageStore()
+
     const { layerOrder, reorderLayers } = useLayerOrderStore()
 
     const sensors = useSensors(
@@ -197,6 +301,11 @@ export function LayerPanel() {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     )
+
+    // Get background images for a specific artboard
+    const getBackgroundImagesForArtboard = (artboardId: string) => {
+        return backgroundImages.filter(img => img.artboard_id === artboardId)
+    }
 
     // Combine artboards and references into a unified sorted list using layer_order
     const allLayers = useMemo<LayerItem[]>(() => {
@@ -282,6 +391,9 @@ export function LayerPanel() {
     }
 
     const handleSelect = (id: string, type: 'artboard' | 'reference') => {
+        // Deselect background images when selecting a layer
+        selectBackgroundImage(null)
+
         if (type === 'artboard') {
             selectReference(null) // Deselect references
             selectArtboard(id, false)
@@ -291,6 +403,13 @@ export function LayerPanel() {
             selectReference(id, false)
             setReferenceFocus(id)
         }
+    }
+
+    const handleSelectBackgroundImage = (id: string) => {
+        // Deselect artboards and references when selecting background image
+        selectArtboard(null)
+        selectReference(null)
+        selectBackgroundImage(id)
     }
 
     const handleZoomTo = (id: string, type: 'artboard' | 'reference') => {
@@ -324,6 +443,7 @@ export function LayerPanel() {
     const handleBackgroundClick = () => {
         selectArtboard(null)
         selectReference(null)
+        selectBackgroundImage(null)
     }
 
     return (
@@ -362,6 +482,10 @@ export function LayerPanel() {
                                 onZoomTo={handleZoomTo}
                                 onDelete={handleDelete}
                                 onUpdateName={handleUpdateName}
+                                backgroundImages={layer.type === 'artboard' ? getBackgroundImagesForArtboard(layer.id) : []}
+                                selectedBackgroundImageIds={selectedBackgroundImageIds}
+                                onSelectBackgroundImage={handleSelectBackgroundImage}
+                                onDeleteBackgroundImage={removeBackgroundImage}
                             />
                         ))}
                     </SortableContext>

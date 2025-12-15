@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { bulkUpsertArtboards, bulkDeleteArtboards, getArtboards } from '@/app/actions/artboards'
 import { bulkUpsertReferences, bulkDeleteReferences, getReferences } from '@/app/actions/references'
 import { bulkUpsertLayerOrder, bulkDeleteLayerOrder, getLayerOrder } from '@/app/actions/layer-order'
+import { bulkUpsertBackgroundImages, deleteBackgroundImage, getBackgroundImages } from '@/app/actions/background-images'
 import { bulkUpsertProjects, bulkDeleteProjects } from '@/app/actions/projects'
 import { useEffect } from 'react'
 
@@ -57,6 +58,8 @@ export class SyncEngine {
             const referencesToDelete: string[] = []
             const layerOrderToUpsert: any[] = []
             const layerOrderToDelete: string[] = []
+            const backgroundImagesToUpsert: any[] = []
+            const backgroundImagesToDelete: string[] = []
             const projectsToUpsert: any[] = []
             const projectsToDelete: string[] = []
 
@@ -91,6 +94,17 @@ export class SyncEngine {
                         const data = await db.layerOrder.get(id)
                         if (data) layerOrderToUpsert.push(data)
                     }
+                } else if (task.entityType === 'background_image') {
+                    if (task.action === 'delete') {
+                        backgroundImagesToDelete.push(id)
+                    } else {
+                        const data = await db.backgroundImages.get(id)
+                        if (data) backgroundImagesToUpsert.push({
+                            ...data,
+                            id: data.id,
+                            settings: data.settings || {}
+                        })
+                    }
                 } else if (task.entityType === 'project') {
                     if (task.action === 'delete') {
                         projectsToDelete.push(id)
@@ -118,6 +132,12 @@ export class SyncEngine {
             // Layer Order
             if (layerOrderToUpsert.length > 0) await bulkUpsertLayerOrder(layerOrderToUpsert)
             if (layerOrderToDelete.length > 0) await bulkDeleteLayerOrder(layerOrderToDelete)
+
+            // Background Images
+            if (backgroundImagesToUpsert.length > 0) await bulkUpsertBackgroundImages(backgroundImagesToUpsert)
+            for (const id of backgroundImagesToDelete) {
+                await deleteBackgroundImage(id)
+            }
 
             // Projects
             if (projectsToUpsert.length > 0) await bulkUpsertProjects(projectsToUpsert)
@@ -186,6 +206,22 @@ export class SyncEngine {
 
             if (safeUpdates.length > 0) {
                 await db.layerOrder.bulkPut(safeUpdates)
+            }
+        }
+
+        // Pull Background Images
+        const bgImageResult = await getBackgroundImages(projectId)
+
+        if (bgImageResult && bgImageResult.length > 0) {
+            const pending = await db.pendingSync
+                .where('entityType').equals('background_image')
+                .toArray()
+
+            const dirtyIds = new Set(pending.map(p => p.entityId))
+            const safeUpdates = bgImageResult.filter((serverItem: any) => !dirtyIds.has(serverItem.id))
+
+            if (safeUpdates.length > 0) {
+                await db.backgroundImages.bulkPut(safeUpdates)
             }
         }
     }
