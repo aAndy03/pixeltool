@@ -4,9 +4,6 @@
 
 A powerful web-based design and pixel art tool that gives you context for your digital projects.
 
-![PixelTool](public/pixeltool-cover.png)
-*(Note: Add a cover image if available, or remove this line)*
-
 ## Why PixelTool?
 
 - **Spatial Context**: Built to provide spatial context while designing.
