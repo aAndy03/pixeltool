@@ -1,11 +1,22 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { ArrowRight } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowRight, Github, Monitor } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 export function Intro() {
     const [entered, setEntered] = useState(false)
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768)
+        }
+
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
 
     return (
         <motion.div
@@ -40,12 +51,30 @@ export function Intro() {
                     transition={{ delay: 1.5, duration: 0.8 }}
                     className="mt-16"
                 >
-                    <button
-                        onClick={() => setEntered(true)}
-                        className="group flex items-center gap-3 px-8 py-4 text-base font-medium transition-all duration-300 hover:text-foreground text-muted-foreground border border-white/5 hover:border-white/20 hover:bg-white/5 rounded-full"
-                    >
-                        Enter Workspace <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-                    </button>
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        {isMobile ? (
+                            <div className="flex items-center gap-3 px-8 py-4 text-base font-medium text-muted-foreground border border-red-500/20 bg-red-500/10 rounded-full cursor-not-allowed">
+                                <Monitor className="w-5 h-5" />
+                                Desktop Only
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setEntered(true)}
+                                className="group flex items-center gap-3 px-8 py-4 text-base font-medium transition-all duration-300 hover:text-foreground text-muted-foreground border border-white/5 hover:border-white/20 hover:bg-white/5 rounded-full"
+                            >
+                                Enter Workspace <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                            </button>
+                        )}
+                        <a
+                            href="https://github.com/aAndy03/pixeltool"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex items-center gap-3 px-8 py-4 text-base font-medium transition-all duration-300 hover:text-foreground text-muted-foreground border border-white/5 hover:border-white/20 hover:bg-white/5 rounded-full"
+                        >
+                            <Github className="w-5 h-5 transition-transform group-hover:scale-110" />
+                            GitHub Repo
+                        </a>
+                    </div>
                     <div className="mt-8 text-center text-xs text-white/20 animate-pulse">
                         Scroll for more info
                     </div>
@@ -200,12 +229,19 @@ export function Intro() {
                 </section>
 
                 <div className="text-center pt-20">
-                    <button
-                        onClick={() => setEntered(true)}
-                        className="px-12 py-4 text-lg font-bold bg-white text-black rounded-full hover:scale-105 transition-transform"
-                    >
-                        Start Creating
-                    </button>
+                    {isMobile ? (
+                        <div className="inline-flex items-center gap-2 px-12 py-4 text-lg font-bold bg-white/10 text-white/50 rounded-full cursor-not-allowed">
+                            <Monitor className="w-5 h-5" />
+                            Use Desktop to Create
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setEntered(true)}
+                            className="px-12 py-4 text-lg font-bold bg-white text-black rounded-full hover:scale-105 transition-transform"
+                        >
+                            Start Creating
+                        </button>
+                    )}
                 </div>
             </motion.div>
         </motion.div>
