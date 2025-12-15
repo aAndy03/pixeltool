@@ -15,7 +15,7 @@ interface ArtboardProps {
     data: Artboard
 }
 
-export function ArtboardComponent({ data }: ArtboardProps) {
+const ArtboardComponentBase = ({ data }: ArtboardProps) => {
     const { width, height, x, y, name, id, sort_order, settings } = data
     // Default values if not set
     const bgColor = settings?.backgroundColor || '#ffffff'
@@ -264,3 +264,5 @@ export function ArtboardComponent({ data }: ArtboardProps) {
         </group>
     )
 }
+
+export const ArtboardComponent = React.memo(ArtboardComponentBase)

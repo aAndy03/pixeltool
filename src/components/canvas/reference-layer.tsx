@@ -20,7 +20,7 @@ interface ReferenceLayerProps {
 const REFERENCE_COLOR = '#22c55e'
 const REFERENCE_COLOR_HEX = 0x22c55e
 
-export function ReferenceLayerComponent({ data }: ReferenceLayerProps) {
+const ReferenceLayerComponentBase = ({ data }: ReferenceLayerProps) => {
     const { width, height, x, y, name, id, sort_order, settings } = data
     const opacity = settings?.opacity ?? 0.4
     const showMeasurements = settings?.showMeasurements ?? false
@@ -343,3 +343,5 @@ export function ReferenceLayerComponent({ data }: ReferenceLayerProps) {
         </group>
     )
 }
+
+export const ReferenceLayerComponent = React.memo(ReferenceLayerComponentBase)

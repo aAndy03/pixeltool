@@ -44,6 +44,19 @@ To handle high-frequency interactions (like dragging artboards) without overload
     -   Clicking "Back" removes the param.
 -   **Benefit**: Users can bookmark specific projects or refresh without losing context.
 
+## Performance & Optimization Strategy (2025.A.12+)
+
+### 1. Auth Optimization
+To prevent "Auth Storms" (excessive API calls to verify session), we exclude high-volume asset routes from middleware checks.
+-   **Image Proxy**: `/api/image-proxy` is excluded from `middleware.ts` matcher. 
+    -   *Impact*: Reduces heavy load on Supabase Auth during scene initialization.
+
+### 2. Rendering Optimization (React Three Fiber)
+The Scene is computationally expensive. We employ several strategies to maintain 60FPS:
+-   **Memoization**: All leaf canvas components (`ArtboardComponent`, `BackgroundImageLayer`, `ReferenceLayerComponent`) are wrapped in `React.memo()`. This ensures they only re-render when THEIR specific props change, not when the global store updates unrelated items.
+-   **Adaptive Resolution**: We use `<AdaptiveDpr />` which lowers the pixel ratio (resolution) during camera movement or heavy interaction, and restores it instantly when static. This provides a "lazy load" feel to zooming/panning and keeps frame rates high.
+-   **Bounding Volume Hierarchy (BVH)**: The Scene is wrapped in `<Bvh />` to accelerate raycasting for mouse interactions (hover/click detection).
+
 ## How to Add New Features
 
 When adding a new entity (e.g., `Layers`, `Shapes`):

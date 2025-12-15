@@ -15,7 +15,7 @@ interface BackgroundImageLayerProps {
     stencilRef: number
 }
 
-export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundImageLayerProps) {
+const BackgroundImageLayerBase = ({ data, artboard, stencilRef }: BackgroundImageLayerProps) => {
     const { width, height, x, y, id, settings, image_url, natural_width, natural_height } = data
     const opacity = settings?.opacity ?? 1
     const fit = settings?.fit || 'custom'
@@ -296,3 +296,5 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
         </group>
     )
 }
+
+export const BackgroundImageLayer = React.memo(BackgroundImageLayerBase)
