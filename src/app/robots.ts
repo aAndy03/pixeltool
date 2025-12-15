@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-    const baseUrl = 'https://andym.github.io/pixeltool3'
+    const baseUrl = 'https://pixeltool-seven.vercel.app'
 
     return {
         rules: {

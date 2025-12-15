@@ -7,7 +7,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://andym.github.io/pixeltool3"),
+  metadataBase: new URL("https://pixeltool-seven.vercel.app"),
   title: {
     default: "PixelTool - Design & Prototype",
     template: "%s | PixelTool",
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "PixelTool - Design & Prototype",
     description: "A powerful web-based design and pixel art tool for creators.",
-    url: "https://andym.github.io/pixeltool3",
+    url: "https://pixeltool-seven.vercel.app",
     siteName: "PixelTool",
     locale: "en_US",
     type: "website",
