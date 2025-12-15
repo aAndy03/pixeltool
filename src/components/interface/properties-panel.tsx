@@ -129,64 +129,114 @@ export function PropertiesPanel() {
                         </div>
                     </div>
 
-                    {/* Dimensions */}
+                    {/* Fit Mode */}
                     <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <Label className="text-xs text-white/50 font-bold">Dimensions</Label>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 text-white/40 hover:text-white"
-                                onClick={() => handleSettingUpdate('linkDimensions', !linkDimensions)}
-                                title={linkDimensions ? "Unlink Dimensions" : "Link Dimensions"}
-                            >
-                                {linkDimensions ? <Link className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                            </Button>
+                        <Label className="text-xs text-white/50 font-bold">Fit</Label>
+                        <Select
+                            value={bgImage.settings?.fit || 'custom'}
+                            onValueChange={(val) => handleSettingUpdate('fit', val)}
+                        >
+                            <SelectTrigger className="w-full h-7 bg-black/50 border-white/10 text-xs text-white">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="custom">Custom</SelectItem>
+                                <SelectItem value="cover">Cover (Fill)</SelectItem>
+                                <SelectItem value="contain">Contain (Fit)</SelectItem>
+                                <SelectItem value="stretch">Stretch (Fill Artboard)</SelectItem>
+                                <SelectItem value="original">Original Size</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Options */}
+                    <div className="space-y-3">
+                        <Label className="text-xs text-white/50 font-bold">Options</Label>
+
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs text-white/70">Clip to Artboard</Label>
+                            <Switch
+                                checked={bgImage.settings?.clip ?? true}
+                                onCheckedChange={(val) => handleSettingUpdate('clip', val)}
+                                className="scale-75"
+                            />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                                <Label className="text-[10px] text-white/40">W ({displayUnit})</Label>
-                                <MathInput
-                                    value={displayWidth}
-                                    onChange={(val) => handleDimensionChange('width', val)}
-                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <Label className="text-[10px] text-white/40">H ({displayUnit})</Label>
-                                <MathInput
-                                    value={displayHeight}
-                                    onChange={(val) => handleDimensionChange('height', val)}
-                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
-                                />
-                            </div>
+
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs text-white/70">Tile Image</Label>
+                            <Switch
+                                checked={bgImage.settings?.repeat ?? false}
+                                onCheckedChange={(val) => handleSettingUpdate('repeat', val)}
+                                className="scale-75"
+                            />
                         </div>
                     </div>
 
-                    {/* Position */}
-                    <div className="space-y-3">
-                        <Label className="text-xs text-white/50 font-bold">Position (offset)</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                                <Label className="text-[10px] text-white/40">X</Label>
-                                <MathInput
-                                    value={bgImage.x}
-                                    decimals={0}
-                                    onChange={(val) => handleUpdate('x', val)}
-                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
-                                />
+                    <div className="h-px bg-white/10" />
+
+                    {/* Dimensions & Position - Only show if fit is Custom */}
+                    {(bgImage.settings?.fit || 'custom') === 'custom' && (
+                        <>
+                            {/* Dimensions */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-xs text-white/50 font-bold">Dimensions</Label>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-white/40 hover:text-white"
+                                        onClick={() => handleSettingUpdate('linkDimensions', !linkDimensions)}
+                                        title={linkDimensions ? "Unlink Dimensions" : "Link Dimensions"}
+                                    >
+                                        {linkDimensions ? <Link className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] text-white/40">W ({displayUnit})</Label>
+                                        <MathInput
+                                            value={displayWidth}
+                                            onChange={(val) => handleDimensionChange('width', val)}
+                                            className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] text-white/40">H ({displayUnit})</Label>
+                                        <MathInput
+                                            value={displayHeight}
+                                            onChange={(val) => handleDimensionChange('height', val)}
+                                            className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <Label className="text-[10px] text-white/40">Y</Label>
-                                <MathInput
-                                    value={bgImage.y}
-                                    decimals={0}
-                                    onChange={(val) => handleUpdate('y', val)}
-                                    className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
-                                />
+
+                            {/* Position */}
+                            <div className="space-y-3">
+                                <Label className="text-xs text-white/50 font-bold">Position (offset)</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] text-white/40">X</Label>
+                                        <MathInput
+                                            value={bgImage.x}
+                                            decimals={0}
+                                            onChange={(val) => handleUpdate('x', val)}
+                                            className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] text-white/40">Y</Label>
+                                        <MathInput
+                                            value={bgImage.y}
+                                            decimals={0}
+                                            onChange={(val) => handleUpdate('y', val)}
+                                            className="bg-black/50 border-white/10 h-7 text-xs text-white px-2"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        </>
+                    )}
 
                     <div className="h-px bg-white/10" />
 

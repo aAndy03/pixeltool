@@ -16,8 +16,53 @@ interface BackgroundImageLayerProps {
 }
 
 export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundImageLayerProps) {
-    const { width, height, x, y, id, settings, image_url } = data
+    const { width, height, x, y, id, settings, image_url, natural_width, natural_height } = data
     const opacity = settings?.opacity ?? 1
+    const fit = settings?.fit || 'custom'
+    const clip = settings?.clip ?? true
+    const repeat = settings?.repeat ?? false
+
+    // Calculate Render Dimensions based on Fit Mode
+    let renderWidth = width
+    let renderHeight = height
+    let renderX = x
+    let renderY = y
+
+    if (fit !== 'custom') {
+        renderX = 0
+        renderY = 0
+
+        const artRatio = artboard.width / artboard.height
+        const imgRatio = natural_width / natural_height
+
+        if (fit === 'original') {
+            renderWidth = natural_width
+            renderHeight = natural_height
+        } else if (fit === 'cover') {
+            if (imgRatio > artRatio) {
+                // Image is wider than artboard (relative to height)
+                renderHeight = artboard.height
+                renderWidth = renderHeight * imgRatio
+            } else {
+                // Image is taller than artboard
+                renderWidth = artboard.width
+                renderHeight = renderWidth / imgRatio
+            }
+        } else if (fit === 'contain') {
+            if (imgRatio > artRatio) {
+                // Image is wider -> fit to width
+                renderWidth = artboard.width
+                renderHeight = renderWidth / imgRatio
+            } else {
+                // Image is taller -> fit to height
+                renderHeight = artboard.height
+                renderWidth = renderHeight * imgRatio
+            }
+        } else if (fit === 'stretch') {
+            renderWidth = artboard.width
+            renderHeight = artboard.height
+        }
+    }
 
     const [texture, setTexture] = useState<THREE.Texture | null>(null)
     const [loadError, setLoadError] = useState(false)
@@ -51,6 +96,19 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
             console.log('Image loaded successfully:', img.width, 'x', img.height)
             const tex = new THREE.Texture(img)
             tex.colorSpace = THREE.SRGBColorSpace
+
+            // Handle Repeat / Tiling
+            tex.wrapS = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
+            tex.wrapT = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
+
+            if (repeat && natural_width > 0 && natural_height > 0) {
+                const repeatX = renderWidth / natural_width
+                const repeatY = renderHeight / natural_height
+                tex.repeat.set(repeatX, repeatY)
+            } else {
+                tex.repeat.set(1, 1)
+            }
+
             tex.needsUpdate = true
             setTexture(tex)
             setLoadError(false)
@@ -70,6 +128,23 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
         }
     }, [image_url])
 
+    // Update texture repeat if dimension changes without reloading image
+    useEffect(() => {
+        if (texture) {
+            texture.wrapS = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
+            texture.wrapT = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
+
+            if (repeat && natural_width > 0 && natural_height > 0) {
+                const repeatX = renderWidth / natural_width
+                const repeatY = renderHeight / natural_height
+                texture.repeat.set(repeatX, repeatY)
+            } else {
+                texture.repeat.set(1, 1)
+            }
+            texture.needsUpdate = true
+        }
+    }, [texture, repeat, renderWidth, renderHeight, natural_width, natural_height])
+
     // Update camera Z periodically
     useFrame(() => {
         if (isCameraAnimating) return
@@ -83,6 +158,10 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
 
     const bind = useGesture({
         onDrag: ({ movement: [mx, my], first, last, event, memo }) => {
+            const isActive = isSelected || event.altKey || event.metaKey || event.ctrlKey
+
+            if (!isActive) return // Allow event to bubble to artboard
+
             event.stopPropagation()
 
             if (first) {
@@ -111,17 +190,21 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
             return memo
         },
         onClick: ({ event }) => {
+            const isActive = isSelected || event.altKey || event.metaKey || event.ctrlKey
+
+            if (!isActive) return // Allow event to bubble to artboard
+
             event.stopPropagation()
             selectArtboard(null)
             selectBackgroundImage(id)
         }
     })
 
-    const borderGeometry = useMemo(() => new THREE.PlaneGeometry(width, height), [width, height])
+    const borderGeometry = useMemo(() => new THREE.PlaneGeometry(renderWidth, renderHeight), [renderWidth, renderHeight])
 
     // Position relative to artboard
-    const absoluteX = artboard.x + x
-    const absoluteY = artboard.y + y
+    const absoluteX = artboard.x + renderX
+    const absoluteY = artboard.y + renderY
     const artboardZOffset = (artboard.sort_order || 0) * 0.1
 
     // Render placeholder if texture failed to load
@@ -135,12 +218,12 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
             >
                 {/* Error/Loading placeholder */}
                 <mesh>
-                    <planeGeometry args={[width, height]} />
+                    <planeGeometry args={[renderWidth, renderHeight]} />
                     <meshBasicMaterial
                         color={loadError ? "#ef4444" : "#3b82f6"}
                         opacity={0.3}
                         transparent
-                        stencilWrite={false}
+                        stencilWrite={clip}
                         stencilRef={stencilRef}
                         stencilFunc={THREE.EqualStencilFunc}
                     />
@@ -165,8 +248,8 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
             onPointerOut={() => document.body.style.cursor = 'auto'}
         >
             {/* Background Image - Using key to force re-render when texture loads */}
-            <mesh key={texture ? 'textured' : 'loading'}>
-                <planeGeometry args={[width, height]} />
+            <mesh key={texture ? 'textured' : 'loading'} renderOrder={(artboard.sort_order || 0)}>
+                <planeGeometry args={[renderWidth, renderHeight]} />
                 {texture ? (
                     <meshBasicMaterial
                         map={texture}
@@ -174,6 +257,9 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
                         opacity={opacity}
                         side={THREE.DoubleSide}
                         toneMapped={false}
+                        stencilWrite={clip}
+                        stencilRef={stencilRef}
+                        stencilFunc={THREE.EqualStencilFunc}
                     />
                 ) : (
                     <meshBasicMaterial
@@ -181,6 +267,9 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
                         transparent
                         opacity={0.3}
                         side={THREE.DoubleSide}
+                        stencilWrite={clip}
+                        stencilRef={stencilRef}
+                        stencilFunc={THREE.EqualStencilFunc}
                     />
                 )}
             </mesh>
@@ -193,13 +282,13 @@ export function BackgroundImageLayer({ data, artboard, stencilRef }: BackgroundI
                 </lineSegments>
             )}
 
-            {/* Dashed outline showing full image bounds */}
+            {/* Dashed outline showing full image bounds - Only if clipped is on, to show what's hidden? Or always? */}
             <lineSegments position={[0, 0, 0.3]}>
                 <edgesGeometry args={[borderGeometry]} />
                 <lineDashedMaterial
                     color={isSelected ? "#0066ff" : "#ffffff"}
-                    dashSize={width * 0.02}
-                    gapSize={width * 0.01}
+                    dashSize={renderWidth * 0.02}
+                    gapSize={renderWidth * 0.01}
                     opacity={0.5}
                     transparent
                 />

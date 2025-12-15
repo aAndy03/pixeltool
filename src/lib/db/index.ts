@@ -38,6 +38,9 @@ export interface BackgroundImage {
         linkDimensions?: boolean  // Link W/H together
         physicalUnit?: string
         dpi?: number
+        fit?: 'cover' | 'contain' | 'original' | 'custom'
+        clip?: boolean
+        repeat?: boolean
     }
     sort_order: number
 }

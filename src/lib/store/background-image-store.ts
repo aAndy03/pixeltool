@@ -83,7 +83,9 @@ export const useBackgroundImageStore = create<BackgroundImageState>((set, get) =
             height: renderHeight,
             settings: {
                 opacity: 1,
-                linkDimensions: true
+                linkDimensions: true,
+                fit: 'custom',
+                clip: true
             },
             sort_order: newSortOrder
         }

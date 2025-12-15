@@ -198,7 +198,8 @@ export function ArtboardComponent({ data }: ArtboardProps) {
                     color={bgColor}
                     roughness={0.5}
                     transparent={true}
-                    opacity={hasBackgroundImage ? 0 : opacity}
+                    opacity={opacity}
+                    colorWrite={!hasBackgroundImage}
                     polygonOffset
                     polygonOffsetFactor={-1 * (sort_order || 0)}
                     stencilWrite={true}
