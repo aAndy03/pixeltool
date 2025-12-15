@@ -1,7 +1,7 @@
 'use client'
 
 import { Canvas } from '@react-three/fiber'
-import { PerspectiveCamera, AdaptiveDpr, Bvh } from '@react-three/drei'
+import { PerspectiveCamera } from '@react-three/drei'
 import { useMemo, useEffect } from 'react'
 import { toPx } from '@/lib/math/units'
 import { ArtboardComponent } from './artboard'
@@ -57,10 +57,6 @@ export function Scene() {
                     near={1}
                     far={toPx(MAX_DISTANCE_M * 2, 'm', PPI)}
                 />
-
-                {/* Performance Optimizations */}
-                <AdaptiveDpr pixelated />
-                <Bvh />
 
                 {/* CameraControls handles interaction and persistence */}
                 <CameraControls />

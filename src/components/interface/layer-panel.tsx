@@ -176,11 +176,16 @@ function SortableLayer({
                     setIsEditing(true)
                 }}
             >
+                {/* Drag Handle - Always visible */}
+                <div {...attributes} {...listeners} className="cursor-grab hover:text-white/80 p-0.5">
+                    <GripVertical className="w-3 h-3 text-white/20" />
+                </div>
+
                 {/* Expand/Collapse for artboards with background images */}
-                {hasBackgroundImages ? (
+                {hasBackgroundImages && (
                     <button
                         onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-                        className="p-0.5 hover:bg-white/10 rounded"
+                        className="p-0.5 hover:bg-white/10 rounded mr-1"
                     >
                         {isExpanded ? (
                             <ChevronDown className="w-3 h-3 text-white/40" />
@@ -188,11 +193,6 @@ function SortableLayer({
                             <ChevronRight className="w-3 h-3 text-white/40" />
                         )}
                     </button>
-                ) : (
-                    /* Drag Handle */
-                    <div {...attributes} {...listeners} className="cursor-grab hover:text-white/80 p-0.5">
-                        <GripVertical className="w-3 h-3 text-white/20" />
-                    </div>
                 )}
 
                 {/* Type Icon */}

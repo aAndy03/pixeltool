@@ -30,7 +30,7 @@ export function Intro() {
                         transition={{ delay: 0.8 }}
                         className="text-xl md:text-2xl text-muted-foreground font-light tracking-[0.5em] uppercase"
                     >
-                        2025.A.12alpha
+                        2025.A.14alpha
                     </motion.p>
                 </motion.div>
 
@@ -71,7 +71,82 @@ export function Intro() {
                         </p>
                         <p>
                             Could be used as convertor between the supported metrics.
+                            <span className="flex gap-2 flex-wrap mt-2">
+                                {['mm', 'cm', 'm', 'px', 'inch'].map(unit => (
+                                    <span key={unit} className="text-xs bg-white/10 px-2 py-0.5 rounded-full font-mono text-white/50 border border-white/5">
+                                        {unit}
+                                    </span>
+                                ))}
+                            </span>
                         </p>
+                        <p>
+                            Built using Antigravity - Gemini 3 Pro (High) and Claude Opus 4.5 (Thinking)
+                        </p>
+                    </div>
+                </section>
+
+                {/* Visual Demo Section */}
+                <section className="relative overflow-hidden rounded-3xl bg-neutral-900/50 border border-white/10 p-12">
+                    <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
+                    <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
+                        <div className="space-y-6">
+                            <h2 className="text-3xl font-bold tracking-tight text-white/90">
+                                Visualize & Reference
+                            </h2>
+                            <p className="text-lg text-white/60 leading-relaxed">
+                                Bring your reference images directly into the workspace.
+                                Organize artboards and references side-by-side with
+                                infinite canvas freedom.
+                            </p>
+                            <p className="text-xs text-white/30">
+                                Photo by <a href="https://unsplash.com/@mcgilllibrary?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">McGill Library</a> on <a href="https://unsplash.com/photos/man-in-black-suit-holding-rifle-illustration-V1IjTXINee0?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>
+                            </p>
+                        </div>
+
+                        {/* CSS Graphic: Interactive Canvas Mockup */}
+                        <div className="relative h-[300px] w-full perspective-[1000px] group">
+                            {/* Floating "Reference Layer" */}
+                            <div className="absolute top-4 right-12 z-20 w-48 h-64 border-2 border-emerald-500/50 bg-emerald-500/10 rounded-lg backdrop-blur-sm transform rotate-6 transition-transform duration-700 ease-out group-hover:rotate-12 group-hover:translate-x-4">
+                                <div className="absolute top-0 left-0 bg-emerald-500/80 text-black text-[10px] font-bold px-2 py-0.5 rounded-br-lg">
+                                    Reference
+                                </div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-16 h-16 rounded-full border border-emerald-500/30 flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                    </div>
+                                </div>
+                                {/* Measurement Arrow (Vertical) */}
+                                <div className="absolute -right-4 top-0 bottom-0 w-px bg-emerald-500/30 flex flex-col justify-between items-center py-2">
+                                    <div className="w-1 h-px bg-emerald-500" />
+                                    <span className="text-[8px] text-emerald-500 font-mono rotate-90 whitespace-nowrap">210 mm</span>
+                                    <div className="w-1 h-px bg-emerald-500" />
+                                </div>
+                            </div>
+
+                            {/* "Artboard" with Image */}
+                            <div className="absolute top-12 left-8 z-10 w-64 h-48 bg-white rounded-lg shadow-2xl transform -rotate-3 transition-transform duration-700 ease-out group-hover:-rotate-6 group-hover:-translate-x-4 overflow-hidden border border-white/10">
+                                <div className="absolute top-0 left-0 right-0 h-6 bg-neutral-100 border-b border-neutral-200 flex items-center px-2 gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-red-400" />
+                                    <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                                    <div className="w-2 h-2 rounded-full bg-green-400" />
+                                </div>
+                                <img
+                                    src="https://images.unsplash.com/photo-1584448141569-69f342da535c?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cG9zdGVyfGVufDB8fDB8fHww"
+                                    alt="Artboard Content"
+                                    className="w-full h-full object-cover mt-6"
+                                />
+                                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-md">
+                                    Artboard 1
+                                </div>
+
+                                {/* Measurement Arrow (Horizontal) */}
+                                <div className="absolute bottom-8 left-4 right-4 h-px bg-blue-500/50 flex justify-between items-center px-0.5">
+                                    <div className="h-1 w-px bg-blue-500" />
+                                    <div className="bg-blue-500/10 text-blue-600 text-[8px] px-1 rounded font-mono font-bold">1920 px</div>
+                                    <div className="h-1 w-px bg-blue-500" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

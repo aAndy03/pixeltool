@@ -8,6 +8,7 @@ import { useUIStore } from '@/lib/store/ui-store'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGesture } from '@use-gesture/react'
 import { BackgroundImage } from '@/lib/db'
+import { normalizeImageUrl } from '@/lib/utils'
 
 interface BackgroundImageLayerProps {
     data: BackgroundImage
@@ -66,9 +67,6 @@ const BackgroundImageLayerBase = ({ data, artboard, stencilRef }: BackgroundImag
 
     const [texture, setTexture] = useState<THREE.Texture | null>(null)
     const [loadError, setLoadError] = useState(false)
-    const [cameraZ, setCameraZ] = useState(1000)
-
-    const { isCameraAnimating } = useUIStore()
     const { camera, size } = useThree()
     const { selectedBackgroundImageIds, selectBackgroundImage, update } = useBackgroundImageStore()
     const { selectArtboard } = useArtboardStore()
@@ -76,15 +74,22 @@ const BackgroundImageLayerBase = ({ data, artboard, stencilRef }: BackgroundImag
     const isSelected = selectedBackgroundImageIds.includes(id)
     const zOffset = 0.05
 
+
+
+    // ... (keep imports)
+
     // Load texture using proxy to bypass CORS
     useEffect(() => {
+        // Normalize URL (e.g. handle Google Drive links)
+        const directUrl = normalizeImageUrl(image_url)
+
         // Check if it's an external URL (not from our domain)
-        const isExternal = image_url.startsWith('http') && !image_url.includes(window.location.host)
+        const isExternal = directUrl.startsWith('http') && !directUrl.includes(window.location.host)
 
         // Use proxy for external URLs
         const textureUrl = isExternal
-            ? `/api/image-proxy?url=${encodeURIComponent(image_url)}`
-            : image_url
+            ? `/api/image-proxy?url=${encodeURIComponent(directUrl)}`
+            : directUrl
 
         console.log('Loading texture from:', textureUrl)
 
@@ -94,6 +99,16 @@ const BackgroundImageLayerBase = ({ data, artboard, stencilRef }: BackgroundImag
 
         img.onload = () => {
             console.log('Image loaded successfully:', img.width, 'x', img.height)
+
+            // Update store if natural dimensions are missing or different
+            if (natural_width !== img.width || natural_height !== img.height) {
+                console.log('Updating natural dimensions in store')
+                update(id, {
+                    natural_width: img.width,
+                    natural_height: img.height
+                })
+            }
+
             const tex = new THREE.Texture(img)
             tex.colorSpace = THREE.SRGBColorSpace
 
@@ -101,9 +116,9 @@ const BackgroundImageLayerBase = ({ data, artboard, stencilRef }: BackgroundImag
             tex.wrapS = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
             tex.wrapT = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
 
-            if (repeat && natural_width > 0 && natural_height > 0) {
-                const repeatX = renderWidth / natural_width
-                const repeatY = renderHeight / natural_height
+            if (repeat && img.width > 0 && img.height > 0) {
+                const repeatX = renderWidth / img.width
+                const repeatY = renderHeight / img.height
                 tex.repeat.set(repeatX, repeatY)
             } else {
                 tex.repeat.set(1, 1)
@@ -145,14 +160,7 @@ const BackgroundImageLayerBase = ({ data, artboard, stencilRef }: BackgroundImag
         }
     }, [texture, repeat, renderWidth, renderHeight, natural_width, natural_height])
 
-    // Update camera Z periodically
-    useFrame(() => {
-        if (isCameraAnimating) return
-        const z = camera.position.z
-        if (Math.abs(z - cameraZ) > 10) {
-            setCameraZ(z)
-        }
-    })
+
 
     const { setSnapGuides } = useUIStore()
 

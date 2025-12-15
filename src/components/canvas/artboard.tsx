@@ -36,7 +36,8 @@ const ArtboardComponentBase = ({ data }: ArtboardProps) => {
     useFrame(() => {
         if (isCameraAnimating) return // Skip during animation
         const z = camera.position.z
-        if (Math.abs(z - cameraZ) > 10) {
+        // Reduce re-renders: Only update if zoom changes by > 20%
+        if (Math.abs(z - cameraZ) > z * 0.2) {
             setCameraZ(z)
         }
     })
